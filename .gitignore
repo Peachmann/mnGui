@@ -1,3 +1,8 @@
+ryu/
+flowmanager/
+backup/
+.python-version
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -141,6 +146,7 @@ cython_debug/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/*.code-snippets
+.vscode/
 
 # Local History for Visual Studio Code
 .history/

@@ -67,7 +67,7 @@
          <item>
           <widget class="QTabWidget" name="create_helper">
            <property name="currentIndex">
-            <number>0</number>
+            <number>1</number>
            </property>
            <widget class="QWidget" name="tab">
             <property name="toolTip">
@@ -140,7 +140,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="remove_host_button_2">
+               <widget class="QPushButton" name="remove_switch_button">
                 <property name="text">
                  <string>Remove Switch</string>
                 </property>
@@ -176,6 +176,19 @@
           </widget>
          </item>
         </layout>
+       </widget>
+       <widget class="QPushButton" name="refresh_button">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>500</y>
+          <width>159</width>
+          <height>25</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Refresh</string>
+        </property>
        </widget>
       </widget>
      </item>

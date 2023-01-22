@@ -2,7 +2,7 @@ import sys
 sys.path.append(".")
 import requests
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget
-from PyQt6.QtCore import QThread, QObject, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import QThread, QObject, pyqtSignal, pyqtSlot, QTimer
 
 from topos import DualSwitchTopo
 from mininet.net import Mininet
@@ -16,33 +16,50 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 RYU_URL = 'http://0.0.0.0:8080/'
-
+VERSION = "0.1"
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
     Main Window handling core app.
     """
+
+    blocktest = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__()
         self.setupUi(self)
-        self.setWindowTitle("Testing Testing")
+        self.setWindowTitle(F"MnGUI v{VERSION}")
 
+        # Setup Mininet Thread with required Slots and Signals
         self.mininet_thread = MininetThread(parent=self)
+        self.mininet_thread.get_topology.connect(self.get_full_topology)
+        self.mininet_thread.add_host_signal.connect(self.mininet_thread.addHost)
         self.mininet_thread.start()
 
+        # Setup API Slots and Signals
+        self.remove_host_button.clicked.connect(self.get_full_topology)
+
+        # values = {'name': 'TESTMAN', 'mac': '00:00:00:00:11:13', 'switch': 's1'}
+        # self.add_host_button.clicked.connect(self.mininet_thread.addHost(values))
+        self.refresh_button.clicked.connect(self.refresh_topology)
+        self.blocktest.connect(self.mininet_thread.blockTest)
 
 
-    @pyqtSlot(str)
+    @pyqtSlot()
     def change_button_text(self, value):
         self.button.setText(value)
 
+    def refresh_topology(self):
+        self.canvas_widget.networkPlot()
 
-    def the_button_was_clicked(self):
+
+    @pyqtSlot()
+    def get_full_topology(self):
         # values = {'name': self.button.text(), 'mac': '00:00:00:00:11:13', 'switch': 's1'}
         # self.mininet_thread.addHost(values)
-        r = requests.get(RYU_URL + 'v1.0/topology/links')
-        print(r.json())
-        print("Clicked!")
+        # r = requests.get(RYU_URL + 'v1.0/topology/links')
+        # print(r.json())
+        print("Mininet started, topology collected!")
 
 
     def closeEvent(self, event):
@@ -60,7 +77,8 @@ class MininetThread(QThread):
     The thread which is responsible for running Mininet.
     """
 
-    addHostSignal = pyqtSignal(dict)
+    add_host_signal = pyqtSignal(dict)
+    get_topology = pyqtSignal()
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
@@ -68,10 +86,17 @@ class MininetThread(QThread):
         c1 = RemoteController('c1')
         self.net = Mininet(topo=topo, controller=c1)
 
+
     def run(self):
         self.net.start()
+        self.get_topology.emit()
         CLI(self.net)
 
+    @pyqtSlot(str)
+    def blockTest(self, value):
+        print(F"does it block lol {value}")
+
+    @pyqtSlot(dict)
     def addHost(self, values):
         host_name = values.get('name')
         host_mac = values.get('mac')

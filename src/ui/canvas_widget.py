@@ -27,7 +27,6 @@ class CanvasWidget(QWidget):
         self.initUI()
 
     def initUI(self):
-
         grid = QGridLayout()
         self.setLayout(grid)
 
@@ -36,11 +35,15 @@ class CanvasWidget(QWidget):
         grid.addWidget(self.canvas, 0, 1, 9, 9)
         self.ax.axis("off")
 
-        self.networkPlot()
-        #self.plot1()
+        #self.networkPlot()
+        self.plot1()
         self.show()
 
     def networkPlot(self):
+        self.figure.clf()
+        ax = self.figure.add_subplot(111)
+        ax.axis("off")
+
         G = nx.Graph()
 
         G.add_node("switch_1", image=self.images["switch"])
@@ -55,18 +58,18 @@ class CanvasWidget(QWidget):
         nx.draw_networkx_edges(
             G,
             pos=pos,
-            ax=self.ax,
+            ax=ax,
             arrows=True,
             arrowstyle="-",
             min_source_margin=15,
             min_target_margin=15,
         )
 
-        tr_figure = self.ax.transData.transform
+        tr_figure = ax.transData.transform
         tr_axes = self.figure.transFigure.inverted().transform
 
         # Select the size of the image (relative to the X axis)
-        icon_size = (self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.025
+        icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.025
         icon_center = icon_size / 2.0
 
         # Add the respective image to each node

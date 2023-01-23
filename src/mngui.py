@@ -1,8 +1,10 @@
 import sys
-sys.path.append(".")
 import requests
+import logging
+from dialogs import AddHostDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget
 from PyQt6.QtCore import QThread, QObject, pyqtSignal, pyqtSlot, QTimer
+from json import JSONDecodeError
 
 from topos import DualSwitchTopo
 from mininet.net import Mininet
@@ -10,20 +12,30 @@ from mininet.cli import CLI
 from mininet.node import RemoteController
 
 from ui.ui_main_window import Ui_MainWindow
-import numpy as np
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+sys.path.append(".")
+
+logging.basicConfig(level='INFO', format='%(levelname)s :: %(name)s :: %(message)s')
 
 RYU_URL = 'http://0.0.0.0:8080/'
-VERSION = "0.1"
+VERSION = '0.1'
+
+LINKS_URL = RYU_URL + 'v1.0/topology/links'
+SWITCHES_URL = RYU_URL + 'v1.0/topology/switches'
+HOSTS_URL = RYU_URL + 'v1.0/topology/hosts'
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
     Main Window handling core app.
     """
 
-    blocktest = pyqtSignal(str)
+    logger = logging.getLogger('Main')
+
+    add_host_signal = pyqtSignal(dict)
+
+    links = []
+    switches = []
+    hosts = []
 
     def __init__(self, parent=None):
         super().__init__()
@@ -33,51 +45,67 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Setup Mininet Thread with required Slots and Signals
         self.mininet_thread = MininetThread(parent=self)
         self.mininet_thread.get_topology.connect(self.get_full_topology)
-        self.mininet_thread.add_host_signal.connect(self.mininet_thread.addHost)
+        self.add_host_signal.connect(self.mininet_thread.add_host)
         self.mininet_thread.start()
 
         # Setup API Slots and Signals
-        self.remove_host_button.clicked.connect(self.get_full_topology)
+        self.add_host_button.clicked.connect(self.load_add_host_dialog)
 
         # values = {'name': 'TESTMAN', 'mac': '00:00:00:00:11:13', 'switch': 's1'}
         # self.add_host_button.clicked.connect(self.mininet_thread.addHost(values))
         self.refresh_button.clicked.connect(self.refresh_topology)
-        self.blocktest.connect(self.mininet_thread.blockTest)
 
+    def load_add_host_dialog(self):
+        dialog = AddHostDialog(self)
+        dialog.populate_switch_list('test')
 
-    @pyqtSlot()
-    def change_button_text(self, value):
-        self.button.setText(value)
+        if dialog.exec():
+            #self.add_host_signal.emit(DICT_OF_VALUES)
+            self.logger.info("Adding host.")
+        else:
+            self.logger.info("Canceled add host process.")
+
 
     def refresh_topology(self):
+        links, switches, hosts = self.get_full_topology()
+        # print(links)
+        # print(switches)
+        # print(hosts)
         self.canvas_widget.networkPlot()
 
 
     @pyqtSlot()
     def get_full_topology(self):
-        # values = {'name': self.button.text(), 'mac': '00:00:00:00:11:13', 'switch': 's1'}
-        # self.mininet_thread.addHost(values)
-        # r = requests.get(RYU_URL + 'v1.0/topology/links')
-        # print(r.json())
-        print("Mininet started, topology collected!")
+        links = requests.get(LINKS_URL)
+        switches = requests.get(SWITCHES_URL)
+        hosts = requests.get(HOSTS_URL)
+
+        try:
+            links_dict = links.json()
+            switches_dict = switches.json()
+            hosts_dict = hosts.json()
+        except JSONDecodeError:
+            self.logger.error('Response could not be serialized')
+
+        return links_dict, switches_dict, hosts_dict
 
 
     def closeEvent(self, event):
         try:
-            print('Killing Mininet thread')
+            self.logger.info('Killing Mininet thread')
             if self.mininet_thread.isRunning():
                 self.mininet_thread.net.stop()
                 self.mininet_thread.quit()
 
         except Exception as ex_quit:
-            print('Exception :', ex_quit)
+            self.logger.exception(ex_quit)
 
 class MininetThread(QThread):
     """
     The thread which is responsible for running Mininet.
+    The topology modifying functions are also here.
     """
 
-    add_host_signal = pyqtSignal(dict)
     get_topology = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -92,12 +120,11 @@ class MininetThread(QThread):
         self.get_topology.emit()
         CLI(self.net)
 
-    @pyqtSlot(str)
-    def blockTest(self, value):
-        print(F"does it block lol {value}")
 
     @pyqtSlot(dict)
-    def addHost(self, values):
+    def add_host(self, values):
+        # values = {'name': self.button.text(), 'mac': '00:00:00:00:11:13', 'switch': 's1'}
+        # self.mininet_thread.addHost(values)
         host_name = values.get('name')
         host_mac = values.get('mac')
         switch = self.net.get(values.get('switch'))
@@ -108,6 +135,19 @@ class MininetThread(QThread):
         self.net.configHosts()
 
         return new_host
+
+    @pyqtSlot(dict)
+    def add_switch(self, values):
+        # Add new host, switch, and links to existing network
+        s1, s3, h3 = net.get( 's1' ), net.addSwitch( 's3' )
+        slink = self.net.addLink( s1, s3 )
+
+        existing_switches = self.net.get(values.get('old_switch_list'))
+        new_switch = values.get('new_switch_name')
+
+        # Configure and start up                                                                                    
+        s1.attach( slink.intf1 )
+        s3.start( self.net.controllers )
 
 class MnGui():
     """

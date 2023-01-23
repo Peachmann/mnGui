@@ -129,4 +129,4 @@ class SimpleSwitch13(app_manager.RyuApp):
 app_manager.require_app('ryu.app.rest_topology')
 app_manager.require_app('ryu.app.ofctl_rest')
 app_manager.require_app('ryu.app.ws_topology')
-app_manager.require_app('ryu.topology.switches', api_style=True)
+#app_manager.require_app('ryu.topology.switches', api_style=True)

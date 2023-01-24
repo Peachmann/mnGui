@@ -1,7 +1,8 @@
 import sys
 import requests
 import logging
-from dialogs import AddHostDialog
+import re
+from dialogs import AddHostDialog, AddSwitchDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget
 from PyQt6.QtCore import QThread, QObject, pyqtSignal, pyqtSlot, QTimer
 from json import JSONDecodeError
@@ -33,9 +34,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     add_host_signal = pyqtSignal(dict)
 
-    links = []
-    switches = []
-    hosts = []
+    next_dpid = 0
+    links = {}
+    switches = {}
+    hosts = {}
 
     def __init__(self, parent=None):
         super().__init__()
@@ -50,6 +52,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Setup API Slots and Signals
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
+        self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
 
         # values = {'name': 'TESTMAN', 'mac': '00:00:00:00:11:13', 'switch': 's1'}
         # self.add_host_button.clicked.connect(self.mininet_thread.addHost(values))
@@ -60,19 +63,47 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dialog.populate_switch_list('test')
 
         if dialog.exec():
-            #self.add_host_signal.emit(DICT_OF_VALUES)
+            self.add_host_signal.emit({})
             self.logger.info("Adding host.")
         else:
             self.logger.info("Canceled add host process.")
 
+    def load_add_switch_dialog(self):
+        dialog = AddSwitchDialog(self)
+        dialog.populate_switch_multi_select(['s1', 's2', 's3', 's4'])
+
+        if dialog.exec():
+            #self.add_host_signal.emit(DICT_OF_VALUES)
+            self.logger.info("Adding switch.")
+        else:
+            self.logger.info("Canceled add switch process.")
+
 
     def refresh_topology(self):
-        links, switches, hosts = self.get_full_topology()
-        # print(links)
-        # print(switches)
-        # print(hosts)
-        self.canvas_widget.networkPlot()
+        self.switches.clear()
+        self.hosts.clear()
+        self.links.clear()
+        self.switches, self.hosts, self.links = self.get_full_topology()
 
+        for switch in self.switches:
+            port_name = switch['ports'][0]['name']
+            switch['name'] = re.findall("([-.\w]+)-eth[\d]+", port_name)[0]
+
+            current_dpid = int(switch['dpid'])
+            if current_dpid == self.next_dpid:
+                self.next_dpid = current_dpid + 1
+
+
+        # Add names of hosts for detailed view
+        host_names = {}
+        for host in self.mininet_thread.net.hosts:
+            host_names[host.MAC()] = host.name
+
+        for host in self.hosts:
+            host['name'] = host_names.get(host['mac'])
+
+        self.canvas_widget.networkPlot(self.switches, self.hosts, self.links)
+        self.logger.info("Topology updated.")
 
     @pyqtSlot()
     def get_full_topology(self):
@@ -87,7 +118,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         except JSONDecodeError:
             self.logger.error('Response could not be serialized')
 
-        return links_dict, switches_dict, hosts_dict
+        return switches_dict, hosts_dict, links_dict
 
 
     def closeEvent(self, event):
@@ -139,15 +170,15 @@ class MininetThread(QThread):
     @pyqtSlot(dict)
     def add_switch(self, values):
         # Add new host, switch, and links to existing network
-        s1, s3, h3 = net.get( 's1' ), net.addSwitch( 's3' )
-        slink = self.net.addLink( s1, s3 )
+        # s1, s3 = self.net.get( 's1' ), net.addSwitch( 's3' )
+        #slink = self.net.addLink( s1, s3 )
 
         existing_switches = self.net.get(values.get('old_switch_list'))
         new_switch = values.get('new_switch_name')
 
         # Configure and start up                                                                                    
-        s1.attach( slink.intf1 )
-        s3.start( self.net.controllers )
+        # s1.attach( slink.intf1 )
+        # s3.start( self.net.controllers )
 
 class MnGui():
     """

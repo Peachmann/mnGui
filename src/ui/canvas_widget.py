@@ -1,15 +1,10 @@
-from PyQt6.QtCore import *
-from PyQt6.QtWidgets import *
-from PyQt6.QtGui import *
+from PyQt6.QtWidgets import QWidget, QGridLayout
+from PyQt6.QtGui import QFont
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 import networkx as nx
-import numpy as np
-import PIL
 from mpl_interactions import panhandler
-
+from markers import MarkerGenerator
 
 
 class CanvasWidget(QWidget):
@@ -18,15 +13,13 @@ class CanvasWidget(QWidget):
 
         super(CanvasWidget, self).__init__()   
 
-        icons = {
-            "switch": "resources/switch.png",
-            "host": "resources/host.png",
-        }
-        self.images = {k: PIL.Image.open(fname) for k, fname in icons.items()}
         self.ax = ''
         self.pan_handler = ''
         font = QFont()
         font.setPointSize(16)
+        mg = MarkerGenerator()
+        self.host_marker = mg.host_marker
+        self.switch_marker = mg.switch_marker
         self.initUI()
 
     def initUI(self):
@@ -36,10 +29,7 @@ class CanvasWidget(QWidget):
         self.figure, self.ax = plt.subplots()
         self.canvas = FigureCanvas(self.figure)
         grid.addWidget(self.canvas, 0, 1, 9, 9)
-        self.canvas.mpl_connect('button_press_event', self.drag_event)
 
-        #self.networkPlot()
-        self.plot1()
         self.show()
 
     def networkPlot(self, switches, hosts, links):
@@ -50,10 +40,10 @@ class CanvasWidget(QWidget):
         G = nx.Graph()
 
         for switch in switches:
-            G.add_node(switch['dpid'], element='Switch', image=self.images["switch"], name=switch['name'])
+            G.add_node(switch['dpid'], element='Switch', name=switch['name'])
 
         for host in hosts:
-            G.add_node(host['mac'], element='Host', image=self.images["host"], name=host['name'], port=host['port']['name'])
+            G.add_node(host['mac'], element='Host', name=host['name'], port=host['port']['name'])
             G.add_edge(host['mac'], host['port']['dpid'])
 
         # Switch links
@@ -65,6 +55,9 @@ class CanvasWidget(QWidget):
 
         pos = nx.spring_layout(G, seed=123456789)
 
+        switch_list = [x for x,y in G.nodes(data=True) if y['element'] == 'Switch']
+        host_list = [x for x,y in G.nodes(data=True) if y['element'] == 'Host']
+
         nx.draw_networkx_edges(
             G,
             pos=pos,
@@ -75,24 +68,26 @@ class CanvasWidget(QWidget):
             min_target_margin=15,
         )
 
-        tr_figure = self.ax.transData.transform
-        tr_axes = self.figure.transFigure.inverted().transform
-
-        # Select the size of the image (relative to the X axis)
-        icon_size = (self.ax.get_xlim()[1] - self.ax.get_xlim()[0]) * 0.025
-        icon_center = icon_size / 2.0
+        drawn_switches = nx.draw_networkx_nodes(G, pos=pos, ax=self.ax, node_size=800, linewidths=0.2, nodelist=switch_list, node_shape=self.switch_marker)
+        drawn_hosts = nx.draw_networkx_nodes(G, pos=pos, ax=self.ax, node_size=800, linewidths=0.2, nodelist=host_list, node_shape=self.host_marker)
         
-        icons_axes = []
+        idx_switches = {}
+        idc_hosts = {}
+        for idx, node in enumerate(switch_list):
+            idx_switches[idx] = node
+        for idx, node in enumerate(host_list):
+            idc_hosts[idx] = node
 
-        # Add the respective image to each node
-        for node in G.nodes:
-            xf, yf = tr_figure(pos[node])
-            xa, ya = tr_axes((xf, yf))
-            # get overlapped axes and plot icon
-            a = self.figure.add_axes([xa - icon_center, ya - icon_center, icon_size, icon_size])
-            a.imshow(G.nodes[node]['image'])
-            a.axis("off")
-            icons_axes.append(a)
+        annot = self.ax.annotate("", xy=(0,0), xytext=(20,20),textcoords="offset points",
+                            bbox=dict(boxstyle="round", fc="w"),
+                            arrowprops=dict(arrowstyle="->"))
+        annot.set_visible(False)
+
+        def update_annot(ind, idx_list):
+            node_idx = ind['ind'][0]
+            node = idx_list[node_idx]
+            xy = pos[node]
+            annot.xy = xy
 
             current = G.nodes[node]
             text = current['element'] + ' ' + current['name']
@@ -100,45 +95,27 @@ class CanvasWidget(QWidget):
                 text = text + '\nDPID: ' + str(node).lstrip('0')
             else:
                 text = text + '\nMAC: ' + node + '\nPort: ' + current['port']
+            annot.set_text(text)
 
-            a.annot = a.annotate(text, xy=(0,0),
-                    bbox=dict(boxstyle="round", fc="w"))
-            a.annot.set_visible(False)
+        def hover(event):
+            vis = annot.get_visible()
+            if event.inaxes == self.ax:
+                cont, ind = drawn_switches.contains(event)
+                if cont:
+                    update(ind, idx_switches)
+                else:
+                    cont, ind = drawn_hosts.contains(event)
+                    if cont:
+                        update(ind, idc_hosts)
+                    if vis:
+                        annot.set_visible(False)
+                        self.canvas.draw_idle()
 
-        def enter_axes(event):
-            if event.inaxes in icons_axes:
-                event.inaxes.annot.set_visible(True)
-                self.canvas.draw_idle()
-
-        def leave_axes(event):
-            if event.inaxes in icons_axes:
-                event.inaxes.annot.set_visible(False)
-                self.canvas.draw_idle()
+        def update(ind, idx_list):
+            update_annot(ind, idx_list)
+            annot.set_visible(True)
+            self.canvas.draw_idle()
         
-        self.canvas.mpl_connect('axes_enter_event', enter_axes)
-        self.canvas.mpl_connect('axes_leave_event', leave_axes)
         self.pan_handler = panhandler(self.figure)
-        self.canvas.draw_idle()
-
-    def drag_event(self, event):
-        return xd
-
-
-    def plot1(self):
-        self.figure.clf()
-        B = nx.Graph()
-        B.add_nodes_from([1, 2, 3, 4], bipartite=0)
-        B.add_nodes_from(['a', 'b', 'c', 'd', 'e'], bipartite=1)
-        B.add_edges_from([(1, 'a'), (2, 'c'), (3, 'd'), (3, 'e'), (4, 'e'), (4, 'd')])
-
-        X = set(n for n, d in B.nodes(data=True) if d['bipartite'] == 0)
-        Y = set(B) - X
-
-        X = sorted(X, reverse=True)
-        Y = sorted(Y, reverse=True)
-
-        pos = dict()
-        pos.update( (n, (1, i)) for i, n in enumerate(X) ) # put nodes from X at x=1
-        pos.update( (n, (2, i)) for i, n in enumerate(Y) ) # put nodes from Y at x=2
-        nx.draw(B, pos=pos, with_labels=True)
+        self.canvas.mpl_connect("motion_notify_event", hover)
         self.canvas.draw_idle()

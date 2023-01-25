@@ -46,16 +46,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Setup Mininet Thread with required Slots and Signals
         self.mininet_thread = MininetThread(parent=self)
-        self.mininet_thread.get_topology.connect(self.get_full_topology)
+        self.mininet_thread.get_topology.connect(self.refresh_topology)
         self.add_host_signal.connect(self.mininet_thread.add_host)
         self.mininet_thread.start()
 
         # Setup API Slots and Signals
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
-
-        # values = {'name': 'TESTMAN', 'mac': '00:00:00:00:11:13', 'switch': 's1'}
-        # self.add_host_button.clicked.connect(self.mininet_thread.addHost(values))
         self.refresh_button.clicked.connect(self.refresh_topology)
 
     def load_add_host_dialog(self):
@@ -148,6 +145,7 @@ class MininetThread(QThread):
 
     def run(self):
         self.net.start()
+        self.net.pingAll()
         self.get_topology.emit()
         CLI(self.net)
 

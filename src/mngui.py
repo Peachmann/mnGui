@@ -3,8 +3,8 @@ import requests
 import logging
 import re
 from dialogs import AddHostDialog, AddSwitchDialog
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget
-from PyQt6.QtCore import QThread, QObject, pyqtSignal, pyqtSlot, QTimer
+from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot
 from json import JSONDecodeError
 
 from topos import DualSwitchTopo
@@ -34,7 +34,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     add_host_signal = pyqtSignal(dict)
 
-    next_dpid = 0
+    ids = {'dpid': 0, 'host': 0, 'mac': 0}
     links = {}
     switches = {}
     hosts = {}
@@ -46,7 +46,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Setup Mininet Thread with required Slots and Signals
         self.mininet_thread = MininetThread(parent=self)
-        self.mininet_thread.get_topology.connect(self.refresh_topology)
+        self.mininet_thread.refresh_topology_signal.connect(self.refresh_topology)
+        self.mininet_thread.update_ids_signal.connect(self.update_ids)
         self.add_host_signal.connect(self.mininet_thread.add_host)
         self.mininet_thread.start()
 
@@ -57,10 +58,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def load_add_host_dialog(self):
         dialog = AddHostDialog(self)
-        dialog.populate_switch_list('test')
+        dialog.init_selections(self.switches, self.ids)
 
         if dialog.exec():
-            self.add_host_signal.emit({})
+            new_host = {}
+            new_host['name'] = dialog.ui.host_name.text()
+            new_host['mac'] = dialog.ui.mac_name.text()
+            new_host['switch'] = dialog.ui.switch_box.currentText()
+            self.add_host_signal.emit(new_host)
             self.logger.info("Adding host.")
         else:
             self.logger.info("Canceled add host process.")
@@ -70,12 +75,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dialog.populate_switch_multi_select(['s1', 's2', 's3', 's4'])
 
         if dialog.exec():
-            #self.add_host_signal.emit(DICT_OF_VALUES)
             self.logger.info("Adding switch.")
         else:
             self.logger.info("Canceled add switch process.")
 
+    @pyqtSlot(dict)
+    def update_ids(self, values):
+        self.ids.update(values)
 
+    @pyqtSlot()
     def refresh_topology(self):
         self.switches.clear()
         self.hosts.clear()
@@ -87,17 +95,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             switch['name'] = re.findall("([-.\w]+)-eth[\d]+", port_name)[0]
 
             current_dpid = int(switch['dpid'])
-            if current_dpid == self.next_dpid:
-                self.next_dpid = current_dpid + 1
-
+            if current_dpid == self.ids['dpid']:
+                self.ids['dpid'] += 1
 
         # Add names of hosts for detailed view
         host_names = {}
         for host in self.mininet_thread.net.hosts:
             host_names[host.MAC()] = host.name
 
+            #print(host.MAC() + ' xddd ' + host.name)
+            
+            current_mac = int(str(host.MAC()).rsplit(':', 1)[-1])
+            if current_mac == self.ids['mac']:
+                self.ids['mac'] += 1
+
         for host in self.hosts:
-            host['name'] = host_names.get(host['mac'])
+            name = host_names.get(host['mac'])
+            host['name'] = name
+
+        # Remove duplicates
+        for host in self.hosts:
+            if host['name'] is None:
+                self.hosts.pop(self.hosts.index(host))
 
         self.canvas_widget.networkPlot(self.switches, self.hosts, self.links)
         self.logger.info("Topology updated.")
@@ -134,34 +153,40 @@ class MininetThread(QThread):
     The topology modifying functions are also here.
     """
 
-    get_topology = pyqtSignal()
+    refresh_topology_signal = pyqtSignal()
+    update_ids_signal = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
-        topo = DualSwitchTopo()
+        self.topo = DualSwitchTopo()
         c1 = RemoteController('c1')
-        self.net = Mininet(topo=topo, controller=c1)
-
+        self.net = Mininet(topo=self.topo, controller=c1)
 
     def run(self):
         self.net.start()
         self.net.pingAll()
-        self.get_topology.emit()
+        self.update_ids_signal.emit(self.topo.ids)
+        self.refresh_topology_signal.emit()
+
         CLI(self.net)
 
 
     @pyqtSlot(dict)
     def add_host(self, values):
-        # values = {'name': self.button.text(), 'mac': '00:00:00:00:11:13', 'switch': 's1'}
-        # self.mininet_thread.addHost(values)
         host_name = values.get('name')
         host_mac = values.get('mac')
         switch = self.net.get(values.get('switch'))
 
-        new_host = self.net.addHost(name=host_name, mac=host_mac)
+        new_host = self.net.addHost(host_name, mac=host_mac)
         new_link = self.net.addLink(new_host, switch)
         switch.attach(new_link.intf2)
-        self.net.configHosts()
+
+        if new_host.defaultIntf():
+            new_host.configDefault()
+
+        self.msleep(500)
+
+        self.refresh_topology_signal.emit()
 
         return new_host
 

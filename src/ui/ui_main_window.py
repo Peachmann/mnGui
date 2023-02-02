@@ -124,9 +124,11 @@ class Ui_MainWindow(object):
         self.flows_label.setObjectName("flows_label")
         self.sidebar_layout.addWidget(self.flows_label, 0, QtCore.Qt.AlignmentFlag.AlignTop)
         self.add_flow_btn = QtWidgets.QPushButton(self.sidebar_frame)
+        self.add_flow_btn.setEnabled(False)
         self.add_flow_btn.setObjectName("add_flow_btn")
         self.sidebar_layout.addWidget(self.add_flow_btn)
         self.remove_flow_btn = QtWidgets.QPushButton(self.sidebar_frame)
+        self.remove_flow_btn.setEnabled(False)
         self.remove_flow_btn.setObjectName("remove_flow_btn")
         self.sidebar_layout.addWidget(self.remove_flow_btn)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -162,7 +164,7 @@ class Ui_MainWindow(object):
         self.actionAdd_Host.setObjectName("actionAdd_Host")
 
         self.retranslateUi(MainWindow)
-        self.create_helper.setCurrentIndex(1)
+        self.create_helper.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

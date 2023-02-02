@@ -9,10 +9,13 @@ from markers import MarkerGenerator
 
 class CanvasWidget(QWidget):
 
+    """
+    The widget which makes up the plotting (display) part of the app.
+    Relies on NetworkX for graph creation and plotting (which is build upon matplotlib).
+    """
+
     def __init__(self, parent=None):
-
         super(CanvasWidget, self).__init__()   
-
         self.ax = ''
         self.pan_handler = ''
         font = QFont()
@@ -46,14 +49,13 @@ class CanvasWidget(QWidget):
             G.add_node(host['mac'], element='Host', name=host['name'], port=host['port']['name'])
             G.add_edge(host['mac'], host['port']['dpid'])
 
-        # Switch links
         for link in links:
             source = link['src']['dpid']
             destination = link['dst']['dpid']
             if int(source) < int(destination):
                 G.add_edge(source, destination)
 
-        pos = nx.spring_layout(G, seed=123456789)
+        pos = nx.spring_layout(G)
 
         switch_list = [x for x,y in G.nodes(data=True) if y['element'] == 'Switch']
         host_list = [x for x,y in G.nodes(data=True) if y['element'] == 'Host']
@@ -68,9 +70,11 @@ class CanvasWidget(QWidget):
             min_target_margin=15,
         )
 
+        # Draw nodes in two batches to be able to annotate them later
         drawn_switches = nx.draw_networkx_nodes(G, pos=pos, ax=self.ax, node_size=800, linewidths=0.2, nodelist=switch_list, node_shape=self.switch_marker)
         drawn_hosts = nx.draw_networkx_nodes(G, pos=pos, ax=self.ax, node_size=800, linewidths=0.2, nodelist=host_list, node_shape=self.host_marker)
         
+        # Calculate node IDs needed for the hover function
         idx_switches = {}
         idc_hosts = {}
         for idx, node in enumerate(switch_list):
@@ -78,6 +82,7 @@ class CanvasWidget(QWidget):
         for idx, node in enumerate(host_list):
             idc_hosts[idx] = node
 
+        # Annotate nodes with information about them based on type
         annot = self.ax.annotate("", xy=(0,0), xytext=(20,20),textcoords="offset points",
                             bbox=dict(boxstyle="round", fc="w"),
                             arrowprops=dict(arrowstyle="->"))

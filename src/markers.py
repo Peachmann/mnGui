@@ -2,7 +2,12 @@ import matplotlib as mpl
 from svgpath2mpl import parse_path
 
 class MarkerGenerator():
-
+    """
+    Class for creating the custom markers used for displaying switches and hosts.
+    Since NetworkX does not support custom images by default, the markers are converted to .svg.
+    Their respective SVG path values are stored, transformed and used in the underlying matplotlib function.
+    """
+    
     def __init__(self):
         self.host_marker = parse_path("""M 88.62,151.12
            C 88.62,151.12 85.62,153.50 85.62,153.50

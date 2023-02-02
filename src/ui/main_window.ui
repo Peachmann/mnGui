@@ -74,7 +74,7 @@
            <item>
             <widget class="QTabWidget" name="create_helper">
              <property name="currentIndex">
-              <number>1</number>
+              <number>0</number>
              </property>
              <widget class="QWidget" name="tab">
               <property name="sizePolicy">
@@ -207,6 +207,9 @@
            </item>
            <item>
             <widget class="QPushButton" name="add_flow_btn">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>Add Flow</string>
              </property>
@@ -214,6 +217,9 @@
            </item>
            <item>
             <widget class="QPushButton" name="remove_flow_btn">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>Remove Flow</string>
              </property>

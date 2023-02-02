@@ -1,5 +1,6 @@
-# Class used for defining different base topologies
-
+"""
+Class used for defining different starting topologies
+"""
 from mininet.topo import Topo
 
 class SingleSwitchTopo(Topo):

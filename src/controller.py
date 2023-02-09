@@ -22,6 +22,10 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 from ryu.topology.api import get_all_switch, get_all_link, get_all_host
+from tinyrpc.protocols.jsonrpc import JSONRPCProtocol
+from tinyrpc.transports.http import HttpPostClientTransport
+from tinyrpc import RPCClient
+import json
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -30,6 +34,10 @@ class SimpleSwitch13(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        self.rpc_client = RPCClient(
+            JSONRPCProtocol(),
+            HttpPostClientTransport('http://127.0.0.1:5000/'))
+        self.remote_server = self.rpc_client.get_proxy()
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -62,7 +70,17 @@ class SimpleSwitch13(app_manager.RyuApp):
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
-        datapath.send_msg(mod)
+        if priority == 0:
+            datapath.send_msg(mod)
+        else:
+            print("Flow data submitted.")
+            flow_info = {"dpid": datapath.id}
+            flow_info.update(mod.to_jsondict())
+            flow_info_string = str(flow_info)
+            flow_info_string = flow_info_string.replace("\'", "\"")
+            flow_info_string = flow_info_string.replace("None", "0")
+            self.rpc_client.call('process_flow_data', [flow_info_string], None)
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -89,7 +107,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
@@ -100,7 +118,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
-
+        # print(self.mac_to_port)
+        # print('\n')
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
@@ -119,14 +138,16 @@ class SimpleSwitch13(app_manager.RyuApp):
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-        links_list = get_all_link(self)
-        hosts_list = get_all_host(self)
-        switch_list = get_all_switch(self)
-        print([link.to_dict() for link in links_list])
-        print([host.to_dict() for host in hosts_list])
-        print([switch.to_dict() for switch in switch_list])
+        # links_list = get_all_link(self)
+        # hosts_list = get_all_host(self)
+        # switch_list = get_all_switch(self)
+        # print([link.to_dict() for link in links_list])
+        # print('\n')
+        # print([host.to_dict() for host in hosts_list])
+        # print('\n')
+        # print([switch.to_dict() for switch in switch_list])
+        # print('\nxddddddddddddddd\n')
 
 app_manager.require_app('ryu.app.rest_topology')
 app_manager.require_app('ryu.app.ofctl_rest')
 app_manager.require_app('ryu.app.ws_topology')
-#app_manager.require_app('ryu.topology.switches', api_style=True)

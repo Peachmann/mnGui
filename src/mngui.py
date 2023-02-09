@@ -2,11 +2,12 @@ import sys
 import requests
 import logging
 import re
-from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog
+from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from json import JSONDecodeError
 from mininet_thread import MininetThread
+from rpc_thread import RPCThread
 
 from ui.ui_main_window import Ui_MainWindow
 
@@ -20,6 +21,7 @@ VERSION = '0.1'
 LINKS_URL = RYU_URL + 'v1.0/topology/links'
 SWITCHES_URL = RYU_URL + 'v1.0/topology/switches'
 HOSTS_URL = RYU_URL + 'v1.0/topology/hosts'
+ADD_FLOW_URL = RYU_URL + 'stats/flowentry/add'
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
@@ -37,6 +39,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     links = {}
     switches = {}
     hosts = {}
+    allowed_connections = {}
 
     def __init__(self, parent=None):
         super().__init__()
@@ -50,13 +53,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_host_signal.connect(self.mininet_thread.add_host)
         self.remove_host_signal.connect(self.mininet_thread.remove_host)
         self.add_switch_signal.connect(self.mininet_thread.add_switch)
+        self.remove_switch_signal.connect(self.mininet_thread.remove_switch)
         self.mininet_thread.start()
+
+        # Setup RPC Thread for communication with Controller
+        self.rpc_thread = RPCThread(parent=self)
+        self.rpc_thread.create_flow_signal.connect(self.create_flow)
+        self.rpc_thread.get_allowed_connections.connect(self.update_allowed_connections)
+        self.rpc_thread.start()
 
         # Setup API Slots and Signals
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
         self.remove_host_button.clicked.connect(self.load_remove_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
+        self.remove_switch_button.clicked.connect(self.load_remove_switch_dialog)
         self.refresh_button.clicked.connect(self.refresh_topology)
+
+    @pyqtSlot(dict)
+    def create_flow(self, value):
+        x = requests.post(ADD_FLOW_URL, json = value)
+
+    @pyqtSlot()
+    def update_allowed_connections(self):
+        self.rpc_thread.allowed_connections.update(self.allowed_connections)
 
     def load_add_host_dialog(self):
         dialog = AddHostDialog(self)
@@ -67,6 +86,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             new_host['name'] = dialog.ui.host_name.text()
             new_host['mac'] = dialog.ui.mac_name.text()
             new_host['switch'] = dialog.ui.switch_box.currentText()
+            self.allowed_connections[new_host['mac']] = []
             self.add_host_signal.emit(new_host)
             self.logger.info("Adding host.")
         else:
@@ -78,6 +98,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         if dialog.exec():
             self.remove_host_signal.emit(dialog.ui.host_box.currentText())
+            
+            # Remove host from allowed_connections
+            # Trigger all flow removal
+
             self.logger.info("Removed host.")
         else:
             self.logger.info("Canceled remove host process.")
@@ -96,9 +120,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.logger.info("Canceled add switch process.")
 
-    @pyqtSlot(dict)
-    def update_ids(self, values):
-        self.ids.update(values)
+    def load_remove_switch_dialog(self):
+        dialog = RemoveSwitchDialog(self)
+        dialog.init_ui(self.switches)
+
+        if dialog.exec():
+            self.remove_switch_signal.emit(dialog.ui.switch_box.currentText())
+            self.logger.info("Removed switch.")
+        else:
+            self.logger.info("Canceled remove switch process.")
+
+    @pyqtSlot(dict, dict)
+    def update_ids(self, ids, macs):
+        self.ids.update(ids)
+        self.allowed_connections.update(macs)
 
     @pyqtSlot()
     def refresh_topology(self):
@@ -154,6 +189,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         try:
             self.logger.info('Killing Mininet thread')
+            if self.rpc_thread.isRunning():
+                self.rpc_thread.wsgi_server.stop()
+                self.rpc_thread.wsgi_server.close()
+                self.rpc_thread.quit()
+
             if self.mininet_thread.isRunning():
                 self.mininet_thread.net.stop()
                 self.mininet_thread.quit()

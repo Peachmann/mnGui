@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QDialog, QListWidgetItem
 from ui.ui_add_host_dialog import Ui_Dialog as AddHostDialogUi
 from ui.ui_add_switch_dialog import Ui_Dialog as AddSwitchDialogUi
 from ui.ui_remove_host_dialog import Ui_Dialog as RemoveHostDialogUi
+from ui.ui_remove_switch_dialog import Ui_Dialog as RemoveSwitchDialogUi
 
 
 class AddHostDialog(QDialog):
@@ -78,3 +79,18 @@ class AddSwitchDialog(QDialog):
 class RemoveSwitchDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.ui = RemoveSwitchDialogUi()
+        self.ui.setupUi(self)
+        self.swtich_and_dpid_dict = {}
+
+    def init_ui(self, switches):
+        for switch in switches:
+            self.ui.switch_box.addItem(switch['name'])
+            self.swtich_and_dpid_dict[switch['name']] = switch['dpid']
+
+        self.ui.switch_box.currentTextChanged.connect(self.update_dpid)
+        self.update_dpid()
+
+    def update_dpid(self):
+        selected = self.ui.switch_box.currentText()
+        self.ui.dpid_name.setText(self.swtich_and_dpid_dict[selected])

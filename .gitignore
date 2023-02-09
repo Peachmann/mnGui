@@ -2,6 +2,8 @@ ryu/
 flowmanager/
 backup/
 .python-version
+openflow/
+containernet/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files

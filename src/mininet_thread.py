@@ -1,9 +1,11 @@
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot
 
-from topos import DualSwitchTopo
-from mininet.net import Mininet
+from mininet.net import Containernet
+from topos import PlainDualSwitch
 from mininet.cli import CLI
 from mininet.node import RemoteController
+from mininet.log import info, setLogLevel
+
 
 class MininetThread(QThread):
     """
@@ -12,21 +14,21 @@ class MininetThread(QThread):
     """
 
     refresh_topology_signal = pyqtSignal()
-    update_ids_signal = pyqtSignal(dict)
+    update_ids_signal = pyqtSignal(dict, dict)
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
-        self.topo = DualSwitchTopo()
+        self.topo = PlainDualSwitch()
         c1 = RemoteController('c1')
-        self.net = Mininet(topo=self.topo, controller=c1)
+        self.net = Containernet(topo=self.topo, controller=c1)
 
     def run(self):
+        self.update_ids_signal.emit(self.topo.ids, self.topo.macs)
         self.net.start()
         self.net.pingAll()
-        self.update_ids_signal.emit(self.topo.ids)
         self.refresh_topology_signal.emit()
-
         CLI(self.net)
+
 
 
     @pyqtSlot(dict)
@@ -64,6 +66,13 @@ class MininetThread(QThread):
 
         new_switch.start(self.net.controllers)
 
+        self.msleep(500)
+        self.refresh_topology_signal.emit()
+
+    @pyqtSlot(str)
+    def remove_switch(self, switch_name):
+        switch_node = self.net.get(switch_name)
+        self.net.delSwitch(switch_node)
         self.msleep(500)
         self.refresh_topology_signal.emit()
 

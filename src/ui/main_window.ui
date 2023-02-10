@@ -63,7 +63,7 @@
           <number>23</number>
          </property>
          <item>
-          <layout class="QVBoxLayout" name="sidebar_layout" stretch="0,2,2,0,0,1,0,0">
+          <layout class="QVBoxLayout" name="sidebar_layout" stretch="0,2,2,0,0,1,0,0,0">
            <item alignment="Qt::AlignHCenter">
             <widget class="QLabel" name="topology_label">
              <property name="text">
@@ -240,6 +240,16 @@
               </size>
              </property>
             </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="send_requests_btn">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="text">
+              <string>Send Requests</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QPushButton" name="refresh_button">

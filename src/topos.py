@@ -62,15 +62,18 @@ class PlainDualSwitch(Topo):
         s1 = self.addSwitch('s1')
         s2 = self.addSwitch('s2')
 
-        server = self.addHost('server', cls=Docker, mac="00:00:00:00:00:01", dimage="ubuntu:trusty")
-        client = self.addHost('client', cls=Docker, mac="00:00:00:00:00:02", dimage="ubuntu:trusty")
+        server = self.addHost('server', cls=Docker, mac="00:00:00:00:00:01", dcmd="python app.py", dimage="test_server:latest")
+        client = self.addHost('client', cls=Docker, mac="00:00:00:00:00:02", dimage="test_client:latest")
+        #client2 = self.addHost('client2', cls=Docker, ip="10.0.0.3", mac="00:00:00:00:00:03", dimage="test_client:latest")
         
         self.addLink(client, s1)
+        #self.addLink(client2, s1)
         self.addLink(s1, s2)
         self.addLink(server, s2)
 
-        self.macs["00:00:00:00:00:01"] = ["00:00:00:00:00:02"]
-        self.macs["00:00:00:00:00:02"] = ["00:00:00:00:00:01"]
+        self.macs["00:00:00:00:00:01"] = {'host_type': 'Server', 'connected_to': ["00:00:00:00:00:02"]}
+        self.macs["00:00:00:00:00:02"] = {'host_type': 'Client', 'connected_to': ["00:00:00:00:00:01"]}
+        #self.macs["00:00:00:00:00:03"] = {'host_type': 'client', 'ip': '10.0.0.3', 'connected_to': []}
 
 
 class PlainQuadSwitch(Topo):

@@ -26,7 +26,7 @@ class RPCThread(QThread):
         
         transport = WsgiServerTransport(queue_class=gevent.queue.Queue)
 
-        self.wsgi_server = gevent.pywsgi.WSGIServer(('127.0.0.1', 5000), transport.handle)
+        self.wsgi_server = gevent.pywsgi.WSGIServer(('127.0.0.1', 5000), transport.handle, log=None)
         gevent.spawn(self.wsgi_server.start())
 
         self.rpc_server = RPCServerGreenlets(transport, JSONRPCProtocol(), self.dispatcher)
@@ -65,7 +65,10 @@ class RPCThread(QThread):
 
             self.get_allowed_connections.emit()
 
-            if destination in self.allowed_connections[source]:
+            if source not in self.allowed_connections:
+                return
+
+            if destination in self.allowed_connections[source]['connected_to']:
                 create_json = {
                     "dpid": dpid,
                     "priority": 1,
@@ -88,6 +91,26 @@ class RPCThread(QThread):
                 print("Communication is not allowed between these containers!")
 
             return "Response."
+
+        @self.dispatcher.public
+        def verify_valid_flow(value):
+            while not self.allowed_connections:
+                self.get_allowed_connections.emit()
+                self.msleep(100)
+
+            endpoints = json.loads(value)
+            src = endpoints['src']
+            dst = endpoints['dst']
+
+            print(f"Checking flow between {src} and {dst}")
+
+            if src not in self.allowed_connections:
+                return False
+            
+            if dst in self.allowed_connections[src]['connected_to']:
+                return True
+
+            return False
 
         self.rpc_server.serve_forever()
 

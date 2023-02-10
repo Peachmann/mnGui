@@ -6,109 +6,135 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>335</width>
-    <height>325</height>
+    <width>365</width>
+    <height>350</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Add Host</string>
   </property>
-  <widget class="QDialogButtonBox" name="button_box">
-   <property name="geometry">
-    <rect>
-     <x>80</x>
-     <y>270</y>
-     <width>181</width>
-     <height>32</height>
-    </rect>
-   </property>
-   <property name="layoutDirection">
-    <enum>Qt::RightToLeft</enum>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-   </property>
-   <property name="centerButtons">
-    <bool>true</bool>
-   </property>
-  </widget>
-  <widget class="QWidget" name="layoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>30</x>
-     <y>20</y>
-     <width>281</width>
-     <height>251</height>
-    </rect>
-   </property>
-   <layout class="QVBoxLayout" name="full_layout" stretch="3,1">
-    <item>
-     <layout class="QFormLayout" name="form_layout">
-      <property name="formAlignment">
-       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-      </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="switch_label">
-        <property name="text">
-         <string>Switch</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QComboBox" name="switch_box"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="host_label">
-        <property name="text">
-         <string>Host Name</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="host_name">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="maxLength">
-         <number>6</number>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="mac_label">
-        <property name="text">
-         <string>MAC</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLineEdit" name="mac_name">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="checkbox_layout">
-      <item alignment="Qt::AlignHCenter">
-       <widget class="QCheckBox" name="auto_name">
-        <property name="text">
-         <string>AutoFill Name</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-   </layout>
-  </widget>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <layout class="QVBoxLayout" name="full_layout" stretch="3,1">
+     <item>
+      <layout class="QFormLayout" name="form_layout">
+       <property name="formAlignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="switch_label">
+         <property name="text">
+          <string>Switch</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="switch_box"/>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="host_label">
+         <property name="text">
+          <string>Host Name</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="host_name">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="maxLength">
+          <number>6</number>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="mac_label">
+         <property name="text">
+          <string>MAC</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLineEdit" name="mac_name">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="type_label">
+         <property name="text">
+          <string>Type</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="type_box">
+         <item>
+          <property name="text">
+           <string>Server</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Client</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QListWidget" name="other_host_list">
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+         <property name="viewMode">
+          <enum>QListView::ListMode</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="connect_label">
+         <property name="text">
+          <string>Connect to</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="checkbox_layout">
+       <item alignment="Qt::AlignHCenter">
+        <widget class="QCheckBox" name="auto_name">
+         <property name="text">
+          <string>AutoFill Name</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0">
+    <widget class="QDialogButtonBox" name="button_box">
+     <property name="layoutDirection">
+      <enum>Qt::RightToLeft</enum>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+     <property name="centerButtons">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections>

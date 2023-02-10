@@ -70,6 +70,9 @@ class SimpleSwitch13(app_manager.RyuApp):
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
+
+        print(f"Priority: {priority}")
+
         if priority == 0:
             datapath.send_msg(mod)
         else:
@@ -81,11 +84,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             flow_info_string = flow_info_string.replace("None", "0")
             self.rpc_client.call('process_flow_data', [flow_info_string], None)
 
+    def flow_is_allowed(self, src, dst):
+        print(f"Checking flow between {src} and {dst}!")
+
+        info = str({'src': src, 'dst': dst}).replace("\'", "\"")
+        return self.rpc_client.call('verify_valid_flow', [info], None)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        # If you hit this you might want to increase
-        # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
@@ -99,17 +105,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
             return
         dst = eth.dst
         src = eth.src
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
-
-        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
-
-        # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
@@ -118,35 +119,36 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
-        # print(self.mac_to_port)
-        # print('\n')
-        # install a flow to avoid packet_in next time
+
+        # Install a flow to avoid packet_in next time
+        # If the flow is allowed, we install a corresponding flow
+        # Otherwise we drop the packet when it reaches the switch
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
+            if self.flow_is_allowed(src, dst):
+                match = parser.OFPMatch(
+                    in_port=in_port, eth_dst=dst, eth_src=src)
+
+                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    return
+                else:
+                    self.add_flow(datapath, 1, match, actions)
             else:
-                self.add_flow(datapath, 1, match, actions)
+                match = parser.OFPMatch(eth_dst=dst, eth_src=src)
+                instruction = [parser.OFPInstructionActions(ofproto.OFPIT_CLEAR_ACTIONS, [])]
+                msg = parser.OFPFlowMod(datapath, priority=1, command=ofproto.OFPFC_ADD, match=match, instructions=instruction)
+                datapath.send_msg(msg)
+                return
+    
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
 
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+                                    in_port=in_port, actions=actions, data=data)
+
         datapath.send_msg(out)
 
-        # links_list = get_all_link(self)
-        # hosts_list = get_all_host(self)
-        # switch_list = get_all_switch(self)
-        # print([link.to_dict() for link in links_list])
-        # print('\n')
-        # print([host.to_dict() for host in hosts_list])
-        # print('\n')
-        # print([switch.to_dict() for switch in switch_list])
-        # print('\nxddddddddddddddd\n')
 
 app_manager.require_app('ryu.app.rest_topology')
 app_manager.require_app('ryu.app.ofctl_rest')

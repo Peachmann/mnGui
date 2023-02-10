@@ -4,7 +4,7 @@ from mininet.net import Containernet
 from topos import PlainDualSwitch
 from mininet.cli import CLI
 from mininet.node import RemoteController
-from mininet.log import info, setLogLevel
+from mininet.node import Docker
 
 
 class MininetThread(QThread):
@@ -15,6 +15,7 @@ class MininetThread(QThread):
 
     refresh_topology_signal = pyqtSignal()
     update_ids_signal = pyqtSignal(dict, dict)
+    forward_response = pyqtSignal(str)
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
@@ -25,10 +26,20 @@ class MininetThread(QThread):
     def run(self):
         self.update_ids_signal.emit(self.topo.ids, self.topo.macs)
         self.net.start()
-        self.net.pingAll()
+        self.net.pingAll(timeout=1)
         self.refresh_topology_signal.emit()
         CLI(self.net)
 
+
+    @pyqtSlot(dict)
+    def execute_command(self, values):
+        client_name = values['client']
+        server_ip = values['server']
+        to_hash = values['to_hash']
+
+        client = self.net.get(client_name)
+        res = client.cmd(f"curl {server_ip}/hash/{to_hash}")
+        self.forward_response.emit(res)
 
 
     @pyqtSlot(dict)
@@ -36,14 +47,25 @@ class MininetThread(QThread):
         host_name = values.get('name')
         host_mac = values.get('mac')
         switch = self.net.get(values.get('switch'))
+        host_type = values.get('host_type')
+        new_host = None
 
-        new_host = self.net.addHost(host_name, mac=host_mac)
+        if host_type == 'Server':
+            new_host = self.net.addHost(host_name, cls=Docker, mac=host_mac, dcmd="python app.py", dimage="test_server:latest")
+        else:
+            new_host = self.net.addHost(host_name, cls=Docker, mac=host_mac, dimage="test_client:latest")
+        
         new_link = self.net.addLink(new_host, switch)
         switch.attach(new_link.intf2)
 
         if new_host.defaultIntf():
             new_host.configDefault()
 
+        if host_type == 'Client':
+            self.net.ping([new_host, self.net.get(values.get('connected_to')[0])], timeout=1)
+        else:
+            self.net.ping([new_host, self.net.hosts[0]], timeout=1)
+        
         self.msleep(500)
 
         self.refresh_topology_signal.emit()

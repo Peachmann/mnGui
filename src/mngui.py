@@ -2,7 +2,7 @@ import sys
 import requests
 import logging
 import re
-from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog
+from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog, SendRequestDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from json import JSONDecodeError
@@ -39,7 +39,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     links = {}
     switches = {}
     hosts = {}
-    allowed_connections = {}
+    host_info = {}
 
     def __init__(self, parent=None):
         super().__init__()
@@ -56,6 +56,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.remove_switch_signal.connect(self.mininet_thread.remove_switch)
         self.mininet_thread.start()
 
+        print(self.host_info)
+
         # Setup RPC Thread for communication with Controller
         self.rpc_thread = RPCThread(parent=self)
         self.rpc_thread.create_flow_signal.connect(self.create_flow)
@@ -67,6 +69,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.remove_host_button.clicked.connect(self.load_remove_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
         self.remove_switch_button.clicked.connect(self.load_remove_switch_dialog)
+        self.send_requests_btn.clicked.connect(self.load_send_requests_dialog)
         self.refresh_button.clicked.connect(self.refresh_topology)
 
     @pyqtSlot(dict)
@@ -75,18 +78,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @pyqtSlot()
     def update_allowed_connections(self):
-        self.rpc_thread.allowed_connections.update(self.allowed_connections)
+        self.rpc_thread.allowed_connections = self.host_info
 
     def load_add_host_dialog(self):
         dialog = AddHostDialog(self)
-        dialog.init_selections(self.switches, self.ids)
+        dialog.init_selections(self.switches, self.ids, self.hosts, self.host_info)
 
         if dialog.exec():
             new_host = {}
             new_host['name'] = dialog.ui.host_name.text()
             new_host['mac'] = dialog.ui.mac_name.text()
             new_host['switch'] = dialog.ui.switch_box.currentText()
-            self.allowed_connections[new_host['mac']] = []
+            new_host['host_type'] = dialog.ui.type_box.currentText()
+
+            selected_servers = [item.text() for item in dialog.ui.other_host_list.selectedItems()]
+            server_list = []
+            for host in self.hosts:
+                if host['name'] in selected_servers:
+                    server_list.append(host['mac'])
+                    self.host_info[host['mac']]['connected_to'].append(new_host['mac'])
+
+            self.host_info[new_host['mac']] = {'host_type': new_host['host_type'], 'connected_to': server_list}
+            new_host['connected_to'] = selected_servers
+            
             self.add_host_signal.emit(new_host)
             self.logger.info("Adding host.")
         else:
@@ -130,10 +144,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.logger.info("Canceled remove switch process.")
 
+    def load_send_requests_dialog(self):
+        dialog = SendRequestDialog(self)
+        dialog.init_selections(self.hosts, self.host_info)
+        self.mininet_thread.forward_response.connect(dialog.update_response)
+        dialog.send_request_signal.connect(self.mininet_thread.execute_command)
+
+        if dialog.exec():
+            self.logger.info("Sent requests.")
+        else:
+            self.logger.info("Canceled remove switch process.")
+
     @pyqtSlot(dict, dict)
     def update_ids(self, ids, macs):
         self.ids.update(ids)
-        self.allowed_connections.update(macs)
+        self.host_info.update(macs)
 
     @pyqtSlot()
     def refresh_topology(self):
@@ -155,18 +180,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for host in self.mininet_thread.net.hosts:
             host_names[host.MAC()] = host.name
             
-            current_mac = int(str(host.MAC()).rsplit(':', 1)[-1])
-            if current_mac == self.ids['mac']:
-                self.ids['mac'] += 1
+            try:
+                current_mac = int(str(host.MAC()).rsplit(':', 1)[-1])
+                if current_mac == self.ids['mac']:
+                    self.ids['mac'] += 1
+            except:
+                print("Dropped leftover host.")
 
         for host in self.hosts:
             name = host_names.get(host['mac'])
             host['name'] = name
+            self.host_info[host['mac']]['ip'] = host['ipv4'][0]
 
         # Remove duplicates
         for host in self.hosts:
             if host['name'] is None:
                 self.hosts.pop(self.hosts.index(host))
+
+        print(self.host_info)
 
         self.canvas_widget.networkPlot(self.switches, self.hosts, self.links)
         self.logger.info("Topology updated.")

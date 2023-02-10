@@ -134,6 +134,10 @@ class Ui_MainWindow(object):
         self.sidebar_layout.addWidget(self.disconnect_btn)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.sidebar_layout.addItem(spacerItem1)
+        self.send_requests_btn = QtWidgets.QPushButton(self.sidebar_frame)
+        self.send_requests_btn.setEnabled(True)
+        self.send_requests_btn.setObjectName("send_requests_btn")
+        self.sidebar_layout.addWidget(self.send_requests_btn)
         self.refresh_button = QtWidgets.QPushButton(self.sidebar_frame)
         self.refresh_button.setObjectName("refresh_button")
         self.sidebar_layout.addWidget(self.refresh_button)
@@ -181,6 +185,7 @@ class Ui_MainWindow(object):
         self.flows_label.setText(_translate("MainWindow", "Flows"))
         self.connect_btn.setText(_translate("MainWindow", "Connect"))
         self.disconnect_btn.setText(_translate("MainWindow", "Disconnect"))
+        self.send_requests_btn.setText(_translate("MainWindow", "Send Requests"))
         self.refresh_button.setText(_translate("MainWindow", "Refresh"))
         self.actionAdd_Host.setText(_translate("MainWindow", "Add Host"))
 from .canvas_widget import CanvasWidget

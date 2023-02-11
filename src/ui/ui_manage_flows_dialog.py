@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file '/home/peach/Uni/mnGui/src/ui/send_requests_dialog.ui'
+# Form implementation generated from reading ui file '/home/peach/Uni/mnGui/src/ui/manage_flows_dialog.ui'
 #
 # Created by: PyQt6 UI code generator 6.4.0
 #
@@ -12,7 +12,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(361, 272)
+        Dialog.resize(300, 209)
         self.gridLayout = QtWidgets.QGridLayout(Dialog)
         self.gridLayout.setObjectName("gridLayout")
         self.full_layout = QtWidgets.QVBoxLayout()
@@ -32,36 +32,26 @@ class Ui_Dialog(object):
         self.server_box = QtWidgets.QComboBox(Dialog)
         self.server_box.setObjectName("server_box")
         self.form_layout.setWidget(1, QtWidgets.QFormLayout.ItemRole.FieldRole, self.server_box)
-        self.switch_name_label = QtWidgets.QLabel(Dialog)
-        self.switch_name_label.setObjectName("switch_name_label")
-        self.form_layout.setWidget(2, QtWidgets.QFormLayout.ItemRole.LabelRole, self.switch_name_label)
-        self.hash_box = QtWidgets.QLineEdit(Dialog)
-        self.hash_box.setEnabled(True)
-        self.hash_box.setMaxLength(30)
-        self.hash_box.setObjectName("hash_box")
-        self.form_layout.setWidget(2, QtWidgets.QFormLayout.ItemRole.FieldRole, self.hash_box)
-        self.switch_name_label_2 = QtWidgets.QLabel(Dialog)
-        self.switch_name_label_2.setObjectName("switch_name_label_2")
-        self.form_layout.setWidget(3, QtWidgets.QFormLayout.ItemRole.LabelRole, self.switch_name_label_2)
-        self.response_box = QtWidgets.QTextBrowser(Dialog)
-        self.response_box.setObjectName("response_box")
-        self.form_layout.setWidget(3, QtWidgets.QFormLayout.ItemRole.FieldRole, self.response_box)
         self.full_layout.addLayout(self.form_layout)
         self.full_layout.setStretch(0, 3)
         self.gridLayout.addLayout(self.full_layout, 0, 0, 1, 1)
         self.button_box = QtWidgets.QDialogButtonBox(Dialog)
         self.button_box.setLayoutDirection(QtCore.Qt.LayoutDirection.RightToLeft)
         self.button_box.setOrientation(QtCore.Qt.Orientation.Horizontal)
-        self.button_box.setStandardButtons(QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        self.button_box.setStandardButtons(QtWidgets.QDialogButtonBox.StandardButton.Cancel|QtWidgets.QDialogButtonBox.StandardButton.Ok)
         self.button_box.setCenterButtons(True)
         self.button_box.setObjectName("button_box")
         self.gridLayout.addWidget(self.button_box, 2, 0, 1, 1)
         self.checkbox_layout = QtWidgets.QHBoxLayout()
         self.checkbox_layout.setObjectName("checkbox_layout")
-        self.send_btn = QtWidgets.QPushButton(Dialog)
-        self.send_btn.setEnabled(False)
-        self.send_btn.setObjectName("send_btn")
-        self.checkbox_layout.addWidget(self.send_btn)
+        self.connect_btn = QtWidgets.QRadioButton(Dialog)
+        self.connect_btn.setChecked(True)
+        self.connect_btn.setObjectName("connect_btn")
+        self.checkbox_layout.addWidget(self.connect_btn)
+        self.disconnect_btn = QtWidgets.QRadioButton(Dialog)
+        self.disconnect_btn.setChecked(False)
+        self.disconnect_btn.setObjectName("disconnect_btn")
+        self.checkbox_layout.addWidget(self.disconnect_btn)
         self.gridLayout.addLayout(self.checkbox_layout, 1, 0, 1, 1)
 
         self.retranslateUi(Dialog)
@@ -71,9 +61,8 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Send Requests"))
+        Dialog.setWindowTitle(_translate("Dialog", "Manage Flows"))
         self.switch_label.setText(_translate("Dialog", "Client"))
         self.type_label.setText(_translate("Dialog", "Server"))
-        self.switch_name_label.setText(_translate("Dialog", "To hash"))
-        self.switch_name_label_2.setText(_translate("Dialog", "Response"))
-        self.send_btn.setText(_translate("Dialog", "Send Request"))
+        self.connect_btn.setText(_translate("Dialog", "Connect"))
+        self.disconnect_btn.setText(_translate("Dialog", "Disconnect"))

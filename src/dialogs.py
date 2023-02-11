@@ -4,6 +4,7 @@ from ui.ui_add_switch_dialog import Ui_Dialog as AddSwitchDialogUi
 from ui.ui_remove_host_dialog import Ui_Dialog as RemoveHostDialogUi
 from ui.ui_remove_switch_dialog import Ui_Dialog as RemoveSwitchDialogUi
 from ui.ui_send_requests_dialog import Ui_Dialog as SendRequestDialogUi
+from ui.ui_manage_flows_dialog import Ui_Dialog as ManageFlowsDialogUi
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 
 class AddHostDialog(QDialog):
@@ -65,6 +66,23 @@ class RemoveHostDialog(QDialog):
         selected_host = self.ui.host_box.currentText()
         self.ui.mac_name.setText(self.host_and_mac_dict[selected_host])
 
+class ManageFlowsDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = ManageFlowsDialogUi()
+        self.ui.setupUi(self)
+    
+    def init_selections(self, hosts, host_info):
+        for host in hosts:
+            mac = host['mac']
+
+            if host_info[mac]['host_type'] == 'Server':
+                self.ui.server_box.addItem(host['name'])
+            else:
+                self.ui.client_box.addItem(host['name'])
+
+    def modify_flows(self):
+        return
 
 class SendRequestDialog(QDialog):
 
@@ -87,6 +105,13 @@ class SendRequestDialog(QDialog):
                 self.ui.client_box.addItem(host['name'])
 
         self.ui.send_btn.clicked.connect(self.send_request)
+        self.ui.hash_box.textChanged.connect(self.toggle_button)
+
+    def toggle_button(self):
+        if len(self.ui.hash_box.text()) > 0:
+            self.ui.send_btn.setEnabled(True)
+        else:
+            self.ui.send_btn.setEnabled(False)
 
     def send_request(self):
         request = {'client': self.ui.client_box.currentText(),

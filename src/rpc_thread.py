@@ -94,6 +94,8 @@ class RPCThread(QThread):
 
         @self.dispatcher.public
         def verify_valid_flow(value):
+            self.get_allowed_connections.emit()
+
             while not self.allowed_connections:
                 self.get_allowed_connections.emit()
                 self.msleep(100)

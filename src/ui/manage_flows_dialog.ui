@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>361</width>
-    <height>272</height>
+    <width>300</width>
+    <height>209</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Send Requests</string>
+   <string>Manage Flows</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
@@ -41,33 +41,6 @@
        <item row="1" column="1">
         <widget class="QComboBox" name="server_box"/>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="switch_name_label">
-         <property name="text">
-          <string>To hash</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="hash_box">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="maxLength">
-          <number>30</number>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="switch_name_label_2">
-         <property name="text">
-          <string>Response</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="1">
-        <widget class="QTextBrowser" name="response_box"/>
-       </item>
       </layout>
      </item>
     </layout>
@@ -81,7 +54,7 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel</set>
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
      </property>
      <property name="centerButtons">
       <bool>true</bool>
@@ -91,12 +64,22 @@
    <item row="1" column="0">
     <layout class="QHBoxLayout" name="checkbox_layout">
      <item>
-      <widget class="QPushButton" name="send_btn">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
+      <widget class="QRadioButton" name="connect_btn">
        <property name="text">
-        <string>Send Request</string>
+        <string>Connect</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="disconnect_btn">
+       <property name="text">
+        <string>Disconnect</string>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
        </property>
       </widget>
      </item>

@@ -38,7 +38,7 @@ class MininetThread(QThread):
         to_hash = values['to_hash']
 
         client = self.net.get(client_name)
-        res = client.cmd(f"curl {server_ip}/hash/{to_hash}")
+        res = client.cmd(f"curl --connect-timeout 1 {server_ip}/hash/{to_hash}")
         self.forward_response.emit(res)
 
 
@@ -61,11 +61,7 @@ class MininetThread(QThread):
         if new_host.defaultIntf():
             new_host.configDefault()
 
-        if host_type == 'Client':
-            self.net.ping([new_host, self.net.get(values.get('connected_to')[0])], timeout=1)
-        else:
-            self.net.ping([new_host, self.net.hosts[0]], timeout=1)
-        
+        self.net.ping([new_host, self.net.hosts[0]], timeout=1)
         self.msleep(500)
 
         self.refresh_topology_signal.emit()
@@ -74,6 +70,7 @@ class MininetThread(QThread):
     def remove_host(self, host_name):
         host_node = self.net.get(host_name)
         self.net.delHost(host_node)
+        self.net.ping([self.net.hosts[0], self.net.hosts[1]], timeout=1)
         self.msleep(500)
         self.refresh_topology_signal.emit()
 

@@ -2,7 +2,7 @@ import sys
 import requests
 import logging
 import re
-from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog, SendRequestDialog
+from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog, SendRequestDialog, ManageFlowsDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from json import JSONDecodeError
@@ -13,8 +13,6 @@ from ui.ui_main_window import Ui_MainWindow
 
 sys.path.append(".")
 
-logging.basicConfig(level='INFO', format='%(levelname)s :: %(name)s :: %(message)s')
-
 RYU_URL = 'http://0.0.0.0:8080/'
 VERSION = '0.1'
 
@@ -22,13 +20,21 @@ LINKS_URL = RYU_URL + 'v1.0/topology/links'
 SWITCHES_URL = RYU_URL + 'v1.0/topology/switches'
 HOSTS_URL = RYU_URL + 'v1.0/topology/hosts'
 ADD_FLOW_URL = RYU_URL + 'stats/flowentry/add'
+DELETE_FLOW_URL = RYU_URL + 'stats/flowentry/delete'
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
     Main Window handling core app.
     """
 
+    # Setup logging
     logger = logging.getLogger('Main')
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     add_host_signal = pyqtSignal(dict)
     remove_host_signal = pyqtSignal(str)
@@ -56,8 +62,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.remove_switch_signal.connect(self.mininet_thread.remove_switch)
         self.mininet_thread.start()
 
-        print(self.host_info)
-
         # Setup RPC Thread for communication with Controller
         self.rpc_thread = RPCThread(parent=self)
         self.rpc_thread.create_flow_signal.connect(self.create_flow)
@@ -68,13 +72,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
         self.remove_host_button.clicked.connect(self.load_remove_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
-        self.remove_switch_button.clicked.connect(self.load_remove_switch_dialog)
         self.send_requests_btn.clicked.connect(self.load_send_requests_dialog)
+        self.manage_btn.clicked.connect(self.load_manage_flows_dialog)
         self.refresh_button.clicked.connect(self.refresh_topology)
 
     @pyqtSlot(dict)
     def create_flow(self, value):
-        x = requests.post(ADD_FLOW_URL, json = value)
+        requests.post(ADD_FLOW_URL, json = value)
 
     @pyqtSlot()
     def update_allowed_connections(self):
@@ -111,10 +115,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dialog.init_hosts_and_macs(self.hosts)
         
         if dialog.exec():
+            mac = dialog.ui.mac_name.text()
+
+            self.host_info.pop(mac)
+            for host, value in self.host_info.items():
+                if mac in value['connected_to']:
+                    self.host_info[host]['connected_to'].remove(mac)
+                
+                self.remove_flows(mac, host)
+
+            print(self.host_info)
+
             self.remove_host_signal.emit(dialog.ui.host_box.currentText())
-            
-            # Remove host from allowed_connections
-            # Trigger all flow removal
 
             self.logger.info("Removed host.")
         else:
@@ -134,16 +146,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.logger.info("Canceled add switch process.")
 
-    def load_remove_switch_dialog(self):
-        dialog = RemoveSwitchDialog(self)
-        dialog.init_ui(self.switches)
-
-        if dialog.exec():
-            self.remove_switch_signal.emit(dialog.ui.switch_box.currentText())
-            self.logger.info("Removed switch.")
-        else:
-            self.logger.info("Canceled remove switch process.")
-
     def load_send_requests_dialog(self):
         dialog = SendRequestDialog(self)
         dialog.init_selections(self.hosts, self.host_info)
@@ -153,7 +155,74 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if dialog.exec():
             self.logger.info("Sent requests.")
         else:
-            self.logger.info("Canceled remove switch process.")
+            self.logger.info("Canceled requests dialog.")
+
+    def load_manage_flows_dialog(self):
+        dialog = ManageFlowsDialog(self)
+        dialog.init_selections(self.hosts, self.host_info)
+
+        if dialog.exec():
+            client_name = dialog.ui.client_box.currentText()
+            server_name = dialog.ui.server_box.currentText()
+            client_mac = None
+            server_mac = None
+            
+
+            for host in self.hosts:
+                mac = host['mac']
+                if host['name'] == client_name:
+                    client_mac = mac
+                
+                if host['name'] == server_name:
+                    server_mac = mac
+
+            client_connected = self.host_info[client_mac]['connected_to']
+
+            if dialog.ui.connect_btn.isChecked():
+                if server_mac in client_connected:
+                    return
+                
+                self.host_info[client_mac]['connected_to'].append(server_mac)
+                self.host_info[server_mac]['connected_to'].append(client_mac)
+
+                # Remove existing blocking flows (if any)
+                self.remove_flows(client_mac, server_mac)
+
+                self.logger.info("Connecting hosts.")
+            else:
+                if server_mac not in client_connected:
+                    return
+
+                self.host_info[client_mac]['connected_to'].remove(server_mac)
+                self.host_info[server_mac]['connected_to'].remove(client_mac)
+
+                self.remove_flows(client_mac, server_mac)
+
+                self.logger.info("Disconnecting hosts.")
+            
+        else:
+            self.logger.info("Canceled managing flows dialog.")
+
+    def remove_flows(self, src, dst):
+        request = {
+            "match":{
+                "dl_src": src,
+                "dl_dst": dst
+            }
+        }
+
+        request_reverse = {
+            "match": {
+                "dl_src": dst,
+                "dl_dst": src
+            }
+        }
+        
+        for switch in self.switches:
+            request['dpid'] = int(switch['dpid'])
+            request_reverse['dpid'] = int(switch['dpid'])
+            requests.post(DELETE_FLOW_URL, json = request)
+            requests.post(DELETE_FLOW_URL, json = request_reverse)
 
     @pyqtSlot(dict, dict)
     def update_ids(self, ids, macs):
@@ -190,14 +259,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for host in self.hosts:
             name = host_names.get(host['mac'])
             host['name'] = name
-            self.host_info[host['mac']]['ip'] = host['ipv4'][0]
 
-        # Remove duplicates
+            try:
+                self.host_info[host['mac']]['ip'] = host['ipv4'][0]
+            except:
+                print(f"Deleted host {host['mac']} not picked up by RYU API.")
+
+        # Remove leftovers not picked up by RYU
+        to_remove = []
         for host in self.hosts:
             if host['name'] is None:
-                self.hosts.pop(self.hosts.index(host))
+                to_remove.append(host)
 
-        print(self.host_info)
+        for host in to_remove:
+            self.hosts.remove(host)
 
         self.canvas_widget.networkPlot(self.switches, self.hosts, self.links)
         self.logger.info("Topology updated.")

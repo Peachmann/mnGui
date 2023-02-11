@@ -63,7 +63,7 @@
           <number>23</number>
          </property>
          <item>
-          <layout class="QVBoxLayout" name="sidebar_layout" stretch="0,2,2,0,0,1,0,0,0">
+          <layout class="QVBoxLayout" name="sidebar_layout" stretch="0,2,2,0,0,0,0,0">
            <item alignment="Qt::AlignHCenter">
             <widget class="QLabel" name="topology_label">
              <property name="text">
@@ -209,22 +209,12 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="connect_btn">
+            <widget class="QPushButton" name="manage_btn">
              <property name="enabled">
               <bool>true</bool>
              </property>
              <property name="text">
-              <string>Connect</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="disconnect_btn">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="text">
-              <string>Disconnect</string>
+              <string>Manage Flows</string>
              </property>
             </widget>
            </item>

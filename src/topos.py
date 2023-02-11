@@ -58,6 +58,7 @@ class PlainDualSwitch(Topo):
 
     def build(self):
         self.macs = {}
+        self.switch_info = {}
         self.ids = {'dpid': 2, 'host': 2, 'mac': 2}
         s1 = self.addSwitch('s1')
         s2 = self.addSwitch('s2')
@@ -74,6 +75,9 @@ class PlainDualSwitch(Topo):
         self.macs["00:00:00:00:00:01"] = {'host_type': 'Server', 'connected_to': ["00:00:00:00:00:02"]}
         self.macs["00:00:00:00:00:02"] = {'host_type': 'Client', 'connected_to': ["00:00:00:00:00:01"]}
         #self.macs["00:00:00:00:00:03"] = {'host_type': 'client', 'ip': '10.0.0.3', 'connected_to': []}
+
+        self.switch_info['1'] = {'name': 's1', 'hosts': [("client", "00:00:00:00:00:02")]}
+        self.switch_info['2'] = {'name': 's2', 'hosts': [("server", "00:00:00:00:00:01")]}
 
 
 class PlainQuadSwitch(Topo):

@@ -39,13 +39,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     add_host_signal = pyqtSignal(dict)
     remove_host_signal = pyqtSignal(str)
     add_switch_signal = pyqtSignal(dict)
-    remove_switch_signal = pyqtSignal(str)
+    remove_switch_signal = pyqtSignal(str, str, dict)
 
     ids = {'dpid': 0, 'host': 0, 'mac': 0}
     links = {}
     switches = {}
     hosts = {}
     host_info = {}
+    switch_info = {}
 
     def __init__(self, parent=None):
         super().__init__()
@@ -56,6 +57,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.mininet_thread = MininetThread(parent=self)
         self.mininet_thread.refresh_topology_signal.connect(self.refresh_topology)
         self.mininet_thread.update_ids_signal.connect(self.update_ids)
+        self.mininet_thread.remove_connections_signal.connect(self.remove_connections_of_host)
         self.add_host_signal.connect(self.mininet_thread.add_host)
         self.remove_host_signal.connect(self.mininet_thread.remove_host)
         self.add_switch_signal.connect(self.mininet_thread.add_switch)
@@ -72,6 +74,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
         self.remove_host_button.clicked.connect(self.load_remove_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
+        self.remove_switch_button.clicked.connect(self.load_remove_switch_dialog)
         self.send_requests_btn.clicked.connect(self.load_send_requests_dialog)
         self.manage_btn.clicked.connect(self.load_manage_flows_dialog)
         self.refresh_button.clicked.connect(self.refresh_topology)
@@ -83,6 +86,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     @pyqtSlot()
     def update_allowed_connections(self):
         self.rpc_thread.allowed_connections = self.host_info
+
+    @pyqtSlot(str)
+    def remove_connections_of_host(self, mac):
+        self.host_info.pop(mac)
+        for host, value in self.host_info.items():
+            if mac in value['connected_to']:
+                value['connected_to'].remove(mac)
+            
+            self.remove_flows(mac, host)
+
+        for _, value in self.switch_info.items():
+            for connection in value['hosts']:
+                if connection[1] == mac:
+                    value['hosts'].remove(connection)
+                break
 
     def load_add_host_dialog(self):
         dialog = AddHostDialog(self)
@@ -104,6 +122,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             self.host_info[new_host['mac']] = {'host_type': new_host['host_type'], 'connected_to': server_list}
             new_host['connected_to'] = selected_servers
+
+            for _, value in self.switch_info.items():
+                if value['name'] == new_host['switch']:
+                    value['hosts'].append((new_host['name'], new_host['mac']))
             
             self.add_host_signal.emit(new_host)
             self.logger.info("Adding host.")
@@ -117,15 +139,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if dialog.exec():
             mac = dialog.ui.mac_name.text()
 
-            self.host_info.pop(mac)
-            for host, value in self.host_info.items():
-                if mac in value['connected_to']:
-                    self.host_info[host]['connected_to'].remove(mac)
-                
-                self.remove_flows(mac, host)
-
-            print(self.host_info)
-
+            self.remove_connections_of_host(mac)
             self.remove_host_signal.emit(dialog.ui.host_box.currentText())
 
             self.logger.info("Removed host.")
@@ -141,10 +155,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             new_switch['link_to'] = [switch.text() for switch in dialog.ui.switch_list.selectedItems()]
             new_switch['name'] = dialog.ui.switch_name.text()
             new_switch['dpid'] = dialog.ui.dpid_name.text()
+            self.switch_info[new_switch['dpid']] = {'name': new_switch['name'], 'hosts': []}
             self.add_switch_signal.emit(new_switch)
             self.logger.info("Adding switch.")
         else:
             self.logger.info("Canceled add switch process.")
+
+    def load_remove_switch_dialog(self):
+        dialog = RemoveSwitchDialog(self)
+        dialog.init_ui(self.switches)
+
+        if dialog.exec():
+            copy = self.switch_info.copy()
+            self.switch_info.pop(dialog.ui.dpid_name.text())
+            self.remove_switch_signal.emit(dialog.ui.switch_box.currentText(), dialog.ui.dpid_name.text(), copy)
+            self.logger.info("Removed switch.")
+        else:
+            self.logger.info("Canceled remove switch process.")
 
     def load_send_requests_dialog(self):
         dialog = SendRequestDialog(self)
@@ -224,10 +251,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             requests.post(DELETE_FLOW_URL, json = request)
             requests.post(DELETE_FLOW_URL, json = request_reverse)
 
-    @pyqtSlot(dict, dict)
-    def update_ids(self, ids, macs):
+    @pyqtSlot(dict, dict, dict)
+    def update_ids(self, ids, macs, sw_info):
+        """
+        Get the initial state of the topology from the loaded Topo class.
+        """
         self.ids.update(ids)
         self.host_info.update(macs)
+        self.switch_info.update(sw_info)
 
     @pyqtSlot()
     def refresh_topology(self):
@@ -254,7 +285,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if current_mac == self.ids['mac']:
                     self.ids['mac'] += 1
             except:
-                print("Dropped leftover host.")
+                self.logger.info("Dropped leftover host.")
 
         for host in self.hosts:
             name = host_names.get(host['mac'])
@@ -263,7 +294,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 self.host_info[host['mac']]['ip'] = host['ipv4'][0]
             except:
-                print(f"Deleted host {host['mac']} not picked up by RYU API.")
+                self.logger.info(f"Deleted host {host['mac']} not picked up by RYU API.")
 
         # Remove leftovers not picked up by RYU
         to_remove = []

@@ -1,11 +1,17 @@
-from PyQt6.QtWidgets import QDialog, QListWidgetItem
+"""
+Classes handling the setup of dialogs (windows which handle user input).
+Initialize selections with correct data and connect slots (if it's the case).
+"""
+
+from PyQt6.QtWidgets import QDialog, QListWidgetItem, QDialogButtonBox
+from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from ui.ui_add_host_dialog import Ui_Dialog as AddHostDialogUi
 from ui.ui_add_switch_dialog import Ui_Dialog as AddSwitchDialogUi
 from ui.ui_remove_host_dialog import Ui_Dialog as RemoveHostDialogUi
 from ui.ui_remove_switch_dialog import Ui_Dialog as RemoveSwitchDialogUi
 from ui.ui_send_requests_dialog import Ui_Dialog as SendRequestDialogUi
 from ui.ui_manage_flows_dialog import Ui_Dialog as ManageFlowsDialogUi
-from PyQt6.QtCore import pyqtSignal, pyqtSlot
+
 
 class AddHostDialog(QDialog):
     def __init__(self, parent=None):
@@ -139,6 +145,8 @@ class AddSwitchDialog(QDialog):
         self.ui.dpid_name.setText(str(self.dpid))
         self.update_switch_name_field()
         self.ui.auto_name.stateChanged.connect(self.update_switch_name_field)
+        self.ui.switch_list.itemSelectionChanged.connect(self.selection_checker)
+        self.ui.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
     def update_switch_name_field(self):
         if self.ui.auto_name.isChecked():
@@ -148,21 +156,27 @@ class AddSwitchDialog(QDialog):
             self.ui.switch_name.setEnabled(True)
             self.ui.switch_name.clear()
 
+    def selection_checker(self):
+        if len(self.ui.switch_list.selectedItems()) > 0:
+            self.ui.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+        else:
+            self.ui.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+
 class RemoveSwitchDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ui = RemoveSwitchDialogUi()
         self.ui.setupUi(self)
-        self.swtich_and_dpid_dict = {}
+        self.switch_and_dpid_dict = {}
 
     def init_ui(self, switches):
         for switch in switches:
             self.ui.switch_box.addItem(switch['name'])
-            self.swtich_and_dpid_dict[switch['name']] = switch['dpid']
+            self.switch_and_dpid_dict[switch['name']] = str(int(switch['dpid']))
 
         self.ui.switch_box.currentTextChanged.connect(self.update_dpid)
         self.update_dpid()
 
     def update_dpid(self):
         selected = self.ui.switch_box.currentText()
-        self.ui.dpid_name.setText(self.swtich_and_dpid_dict[selected])
+        self.ui.dpid_name.setText(self.switch_and_dpid_dict[selected])

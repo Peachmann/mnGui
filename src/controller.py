@@ -29,6 +29,11 @@ import json
 
 
 class SimpleSwitch13(app_manager.RyuApp):
+    """
+    Controller based on the RYU SimpleSwitch with v1.3 OpenFlow Protocol.
+    It uses RPC to connect to the main application and verify whether a
+    flow is allowed or not before adding it to the flow table of the switch.
+    """
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
@@ -45,13 +50,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
@@ -70,8 +68,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         else:
             mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                     match=match, instructions=inst)
-
-        print(f"Priority: {priority}")
 
         if priority == 0:
             datapath.send_msg(mod)
@@ -149,7 +145,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         datapath.send_msg(out)
 
-
+# Required apps to reach the topology APIs
 app_manager.require_app('ryu.app.rest_topology')
 app_manager.require_app('ryu.app.ofctl_rest')
 app_manager.require_app('ryu.app.ws_topology')

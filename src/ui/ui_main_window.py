@@ -107,7 +107,7 @@ class Ui_MainWindow(object):
         self.add_switch_button.setObjectName("add_switch_button")
         self.button_layout_2.addWidget(self.add_switch_button)
         self.remove_switch_button = QtWidgets.QPushButton(self.tab_2)
-        self.remove_switch_button.setEnabled(False)
+        self.remove_switch_button.setEnabled(True)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -164,7 +164,7 @@ class Ui_MainWindow(object):
         self.actionAdd_Host.setObjectName("actionAdd_Host")
 
         self.retranslateUi(MainWindow)
-        self.create_helper.setCurrentIndex(0)
+        self.create_helper.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

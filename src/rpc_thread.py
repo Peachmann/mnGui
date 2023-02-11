@@ -115,10 +115,3 @@ class RPCThread(QThread):
             return False
 
         self.rpc_server.serve_forever()
-
-    def add_connection(self, src, dst):
-        print(" xddddddddd vdvsdds")
-        return
-
-    def remove_connection(self, src, dst):
-        return

@@ -11,11 +11,16 @@ class MininetThread(QThread):
     """
     The thread which is responsible for running Mininet.
     The topology modifying functions are also here.
+
+    The ping command after the topology modification is needed because
+    RYU API does not automatically pick up the host topology change.
+    As a consequence, at least 2 hosts always need to be present in the topology.
     """
 
     refresh_topology_signal = pyqtSignal()
-    update_ids_signal = pyqtSignal(dict, dict)
+    update_ids_signal = pyqtSignal(dict, dict, dict)
     forward_response = pyqtSignal(str)
+    remove_connections_signal = pyqtSignal(str)
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
@@ -24,7 +29,7 @@ class MininetThread(QThread):
         self.net = Containernet(topo=self.topo, controller=c1)
 
     def run(self):
-        self.update_ids_signal.emit(self.topo.ids, self.topo.macs)
+        self.update_ids_signal.emit(self.topo.ids, self.topo.macs, self.topo.switch_info)
         self.net.start()
         self.net.pingAll(timeout=1)
         self.refresh_topology_signal.emit()
@@ -44,6 +49,10 @@ class MininetThread(QThread):
 
     @pyqtSlot(dict)
     def add_host(self, values):
+        """
+        Add host based on values selected in the dialog by the user.
+        """
+
         host_name = values.get('name')
         host_mac = values.get('mac')
         switch = self.net.get(values.get('switch'))
@@ -88,10 +97,17 @@ class MininetThread(QThread):
         self.msleep(500)
         self.refresh_topology_signal.emit()
 
-    @pyqtSlot(str)
-    def remove_switch(self, switch_name):
+    @pyqtSlot(str, str, dict)
+    def remove_switch(self, switch_name, dpid, switch_info):
         switch_node = self.net.get(switch_name)
+        hosts_to_delete = switch_info[dpid]['hosts']
+
+        for host in hosts_to_delete:
+            self.remove_connections_signal.emit(host[1])
+            host_node = self.net.get(host[0])
+            self.net.delHost(host_node)
+
         self.net.delSwitch(switch_node)
+        self.net.ping([self.net.hosts[0], self.net.hosts[1]], timeout=1)
         self.msleep(500)
         self.refresh_topology_signal.emit()
-

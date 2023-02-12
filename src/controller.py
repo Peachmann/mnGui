@@ -37,13 +37,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
@@ -66,8 +59,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        # If you hit this you might want to increase
-        # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
@@ -119,14 +110,13 @@ class SimpleSwitch13(app_manager.RyuApp):
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-        links_list = get_all_link(self)
-        hosts_list = get_all_host(self)
-        switch_list = get_all_switch(self)
-        print([link.to_dict() for link in links_list])
-        print([host.to_dict() for host in hosts_list])
-        print([switch.to_dict() for switch in switch_list])
+        # links_list = get_all_link(self)
+        # hosts_list = get_all_host(self)
+        # switch_list = get_all_switch(self)
+        # print([link.to_dict() for link in links_list])
+        # print([host.to_dict() for host in hosts_list])
+        # print([switch.to_dict() for switch in switch_list])
 
 app_manager.require_app('ryu.app.rest_topology')
 app_manager.require_app('ryu.app.ofctl_rest')
 app_manager.require_app('ryu.app.ws_topology')
-#app_manager.require_app('ryu.topology.switches', api_style=True)

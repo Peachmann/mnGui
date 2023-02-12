@@ -12,7 +12,7 @@ class MininetThread(QThread):
     """
 
     refresh_topology_signal = pyqtSignal()
-    update_ids_signal = pyqtSignal(dict)
+    update_ids_signal = pyqtSignal(dict, dict)
 
     def __init__(self, parent=None):
         QThread.__init__(self, parent)
@@ -21,9 +21,9 @@ class MininetThread(QThread):
         self.net = Mininet(topo=self.topo, controller=c1)
 
     def run(self):
+        self.update_ids_signal.emit(self.topo.ids, self.topo.switch_info)
         self.net.start()
         self.net.pingAll()
-        self.update_ids_signal.emit(self.topo.ids)
         self.refresh_topology_signal.emit()
 
         CLI(self.net)
@@ -67,3 +67,15 @@ class MininetThread(QThread):
         self.msleep(500)
         self.refresh_topology_signal.emit()
 
+    @pyqtSlot(str, str, dict)
+    def remove_switch(self, switch_name, dpid, switch_info):
+        switch_node = self.net.get(switch_name)
+        hosts_to_delete = switch_info[dpid]['hosts']
+
+        for host in hosts_to_delete:
+            host_node = self.net.get(host[0])
+            self.net.delHost(host_node)
+
+        self.net.delSwitch(switch_node)
+        self.msleep(500)
+        self.refresh_topology_signal.emit()

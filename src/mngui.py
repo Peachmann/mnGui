@@ -2,7 +2,7 @@ import sys
 import requests
 import logging
 import re
-from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog
+from dialogs import AddHostDialog, AddSwitchDialog, RemoveHostDialog, RemoveSwitchDialog, ManageFlowsDialog
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtCore import pyqtSignal, pyqtSlot
 from json import JSONDecodeError
@@ -12,31 +12,38 @@ from ui.ui_main_window import Ui_MainWindow
 
 sys.path.append(".")
 
-logging.basicConfig(level='INFO', format='%(levelname)s :: %(name)s :: %(message)s')
-
 RYU_URL = 'http://0.0.0.0:8080/'
 VERSION = '0.1'
 
 LINKS_URL = RYU_URL + 'v1.0/topology/links'
 SWITCHES_URL = RYU_URL + 'v1.0/topology/switches'
 HOSTS_URL = RYU_URL + 'v1.0/topology/hosts'
+GET_FLOWS_URL = RYU_URL + 'stats/flow/'
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
     Main Window handling core app.
     """
 
+    # Setup logging
     logger = logging.getLogger('Main')
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     add_host_signal = pyqtSignal(dict)
     remove_host_signal = pyqtSignal(str)
     add_switch_signal = pyqtSignal(dict)
-    remove_switch_signal = pyqtSignal(str)
+    remove_switch_signal = pyqtSignal(str, str, dict)
 
     ids = {'dpid': 0, 'host': 0, 'mac': 0}
     links = {}
     switches = {}
     hosts = {}
+    switch_info = {}
 
     def __init__(self, parent=None):
         super().__init__()
@@ -50,12 +57,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_host_signal.connect(self.mininet_thread.add_host)
         self.remove_host_signal.connect(self.mininet_thread.remove_host)
         self.add_switch_signal.connect(self.mininet_thread.add_switch)
+        self.remove_switch_signal.connect(self.mininet_thread.remove_switch)
         self.mininet_thread.start()
 
         # Setup API Slots and Signals
         self.add_host_button.clicked.connect(self.load_add_host_dialog)
         self.remove_host_button.clicked.connect(self.load_remove_host_dialog)
         self.add_switch_button.clicked.connect(self.load_add_switch_dialog)
+        self.remove_switch_button.clicked.connect(self.load_remove_switch_dialog)
+        self.manage_flow_btn.clicked.connect(self.load_manage_flows_dialog)
         self.refresh_button.clicked.connect(self.refresh_topology)
 
     def load_add_host_dialog(self):
@@ -67,6 +77,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             new_host['name'] = dialog.ui.host_name.text()
             new_host['mac'] = dialog.ui.mac_name.text()
             new_host['switch'] = dialog.ui.switch_box.currentText()
+
+            for _, value in self.switch_info.items():
+                if value['name'] == new_host['switch']:
+                    value['hosts'].append((new_host['name'], new_host['mac']))
+
             self.add_host_signal.emit(new_host)
             self.logger.info("Adding host.")
         else:
@@ -77,6 +92,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dialog.init_hosts_and_macs(self.hosts)
         
         if dialog.exec():
+            mac = dialog.ui.mac_name.text()
+            for _, value in self.switch_info.items():
+                for connection in value['hosts']:
+                    if connection[1] == mac:
+                        value['hosts'].remove(connection)
+                    break
+
             self.remove_host_signal.emit(dialog.ui.host_box.currentText())
             self.logger.info("Removed host.")
         else:
@@ -91,14 +113,43 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             new_switch['link_to'] = [switch.text() for switch in dialog.ui.switch_list.selectedItems()]
             new_switch['name'] = dialog.ui.switch_name.text()
             new_switch['dpid'] = dialog.ui.dpid_name.text()
+            self.switch_info[new_switch['dpid']] = {'name': new_switch['name'], 'hosts': []}
             self.add_switch_signal.emit(new_switch)
             self.logger.info("Adding switch.")
         else:
             self.logger.info("Canceled add switch process.")
 
-    @pyqtSlot(dict)
-    def update_ids(self, values):
-        self.ids.update(values)
+    def load_remove_switch_dialog(self):
+        dialog = RemoveSwitchDialog(self)
+        dialog.init_ui(self.switches)
+
+        if dialog.exec():
+            copy = self.switch_info.copy()
+            self.switch_info.pop(dialog.ui.dpid_name.text())
+            self.remove_switch_signal.emit(dialog.ui.switch_box.currentText(), dialog.ui.dpid_name.text(), copy)
+            self.logger.info("Removed switch.")
+        else:
+            self.logger.info("Canceled remove switch process.")
+
+    def load_manage_flows_dialog(self):
+        dialog = ManageFlowsDialog(self)
+        dialog.init_ui(self.switches)
+        dialog.get_flow_signal.connect(self.get_flow_request)
+
+        if dialog.exec():
+            self.logger.info("Managed flows.")
+        else:
+            self.logger.info("Canceled flow management process.")
+
+    @pyqtSlot(str, object)
+    def get_flow_request(self, dpid, dialog):
+        response = requests.get(GET_FLOWS_URL + dpid)
+        dialog.update_flow_box(response.json()[dpid])
+
+    @pyqtSlot(dict, dict)
+    def update_ids(self, ids, sw_info):
+        self.ids.update(ids)
+        self.switch_info.update(sw_info)
 
     @pyqtSlot()
     def refresh_topology(self):
@@ -120,18 +171,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for host in self.mininet_thread.net.hosts:
             host_names[host.MAC()] = host.name
             
-            current_mac = int(str(host.MAC()).rsplit(':', 1)[-1])
-            if current_mac == self.ids['mac']:
-                self.ids['mac'] += 1
+            try:
+                current_mac = int(str(host.MAC()).rsplit(':', 1)[-1])
+                if current_mac == self.ids['mac']:
+                    self.ids['mac'] += 1
+            except:
+                self.logger.info("Dropped leftover host.")
 
         for host in self.hosts:
             name = host_names.get(host['mac'])
             host['name'] = name
 
-        # Remove duplicates
+        # Remove leftovers not picked up by RYU
+        to_remove = []
         for host in self.hosts:
             if host['name'] is None:
-                self.hosts.pop(self.hosts.index(host))
+                to_remove.append(host)
+
+        for host in to_remove:
+            self.hosts.remove(host)
 
         self.canvas_widget.networkPlot(self.switches, self.hosts, self.links)
         self.logger.info("Topology updated.")

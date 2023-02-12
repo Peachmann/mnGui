@@ -1,8 +1,11 @@
-from PyQt6.QtWidgets import QDialog, QListWidgetItem
+from PyQt6.QtWidgets import QDialog, QListWidgetItem, QWidget
+from PyQt6.QtCore import pyqtSignal, pyqtSlot
+from ui.ui_flow_details_dialog import Ui_Dialog as FlowDetailsWidget
 from ui.ui_add_host_dialog import Ui_Dialog as AddHostDialogUi
 from ui.ui_add_switch_dialog import Ui_Dialog as AddSwitchDialogUi
 from ui.ui_remove_host_dialog import Ui_Dialog as RemoveHostDialogUi
-
+from ui.ui_remove_switch_dialog import Ui_Dialog as RemoveSwitchDialogUi
+from ui.ui_manage_flows import Ui_Dialog as ManageFlowsUi
 
 class AddHostDialog(QDialog):
     def __init__(self, parent=None):
@@ -78,3 +81,67 @@ class AddSwitchDialog(QDialog):
 class RemoveSwitchDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.ui = RemoveSwitchDialogUi()
+        self.ui.setupUi(self)
+        self.switch_and_dpid_dict = {}
+
+    def init_ui(self, switches):
+        for switch in switches:
+            self.ui.switch_box.addItem(switch['name'])
+            self.switch_and_dpid_dict[switch['name']] = str(int(switch['dpid']))
+
+        self.ui.switch_box.currentTextChanged.connect(self.update_dpid)
+        self.update_dpid()
+
+    def update_dpid(self):
+        selected = self.ui.switch_box.currentText()
+        self.ui.dpid_name.setText(self.switch_and_dpid_dict[selected])
+
+class ManageFlowsDialog(QDialog):
+    get_flow_signal = pyqtSignal(str, object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = ManageFlowsUi()
+        self.ui.setupUi(self)
+        self.switch_and_dpid_dict = {}
+        self.detail_widget = FlowDetails(self)
+        
+    def init_ui(self, switches):
+        for switch in switches:
+            self.ui.switch_box.addItem(switch['name'])
+            self.switch_and_dpid_dict[switch['name']] = str(int(switch['dpid']))
+        
+        self.ui.switch_box.currentTextChanged.connect(self.get_flows)
+        self.ui.flow_list.itemDoubleClicked.connect(self.display_flow_details)
+
+    def get_flows(self, name):
+        self.get_flow_signal.emit(self.switch_and_dpid_dict[name], self)
+
+    def update_flow_box(self, flows):
+        self.ui.flow_list.clear()
+        flow_id = 1
+        for flow in flows:
+            title = 'Flow ' + str(flow_id) + ' -> ' + flow['actions'][0]
+            flow_id += 1
+            item = QListWidgetItem(title)
+            item.setData(1, flow)
+            self.ui.flow_list.addItem(item)
+
+    def display_flow_details(self, item):
+        flow = item.data(1)
+        self.detail_widget.ui.actions_box.setText(str(flow['actions']))
+        self.detail_widget.ui.match_box.setText(str(flow['match']))
+        self.detail_widget.ui.table_text.setText(str(flow['table_id']))
+        self.detail_widget.ui.priority_text.setText(str(flow['priority']))
+        
+        if self.detail_widget.exec():
+            print("Inspected flow.")
+
+class FlowDetails(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = FlowDetailsWidget()
+        self.ui.setupUi(self)
+
+    

@@ -20,10 +20,6 @@ class SingleSwitchTopo(Topo):
 
 class DualSwitchTopo(Topo):
 
-    def __init__(self):
-        super().__init__()
-        
-
     def build(self):
         self.switch_info = {}
         self.ids = {'dpid': 2, 'host': 3, 'mac': 3}

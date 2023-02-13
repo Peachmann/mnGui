@@ -49,18 +49,11 @@
     </layout>
    </item>
    <item row="3" column="0">
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0">
      <item>
-      <widget class="QPushButton" name="pushButton">
+      <widget class="QPushButton" name="add_flow_button">
        <property name="text">
         <string>Add Flow</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pushButton_2">
-       <property name="text">
-        <string>Delete Flow</string>
        </property>
       </widget>
      </item>

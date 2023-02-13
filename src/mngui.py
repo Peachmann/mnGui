@@ -19,6 +19,8 @@ LINKS_URL = RYU_URL + 'v1.0/topology/links'
 SWITCHES_URL = RYU_URL + 'v1.0/topology/switches'
 HOSTS_URL = RYU_URL + 'v1.0/topology/hosts'
 GET_FLOWS_URL = RYU_URL + 'stats/flow/'
+ADD_FLOW_URL = RYU_URL + 'stats/flowentry/add'
+DELETE_FLOW_URL = RYU_URL + 'stats/flowentry/delete'
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     """
@@ -133,8 +135,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def load_manage_flows_dialog(self):
         dialog = ManageFlowsDialog(self)
+        dialog.hosts = self.hosts.copy()
         dialog.init_ui(self.switches)
         dialog.get_flow_signal.connect(self.get_flow_request)
+        dialog.delete_flow_signal.connect(self.delete_flow_request)
+        dialog.add_flow_signal.connect(self.add_flow_request)
+        dialog.get_flows(dialog.ui.switch_box.itemText(0))
 
         if dialog.exec():
             self.logger.info("Managed flows.")
@@ -145,6 +151,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def get_flow_request(self, dpid, dialog):
         response = requests.get(GET_FLOWS_URL + dpid)
         dialog.update_flow_box(response.json()[dpid])
+
+    @pyqtSlot(dict)
+    def add_flow_request(self, request):
+        requests.post(ADD_FLOW_URL, json=request)
+
+    @pyqtSlot(dict)
+    def delete_flow_request(self, request):
+        requests.post(DELETE_FLOW_URL, json=request)
+
 
     @pyqtSlot(dict, dict)
     def update_ids(self, ids, sw_info):

@@ -1,4 +1,4 @@
-# MnGui - Containernet version
+# MnGui - a Mininet topology GUI
 
 ### Features
 
